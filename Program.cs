@@ -3803,7 +3803,7 @@ namespace Agentic_Mod
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                        using (mlSession.graph.as_default()) // Correctly manage graph context
+                       
                         {
                             try
                             {
@@ -5941,7 +5941,7 @@ namespace Agentic_Mod
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                        using (mlSession.graph.as_default()) // Correctly manage graph context
+                       
                         {
                             try
                             {
