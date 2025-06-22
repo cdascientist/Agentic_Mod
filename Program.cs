@@ -13,10 +13,20 @@ using static Tensorflow.Binding;
 using Accord.MachineLearning;
 using Accord.Math.Distances;
 using System.Text;
-using System.Numerics;
+// Explicitly alias System.Numerics.Vector3 to avoid ambiguity if Accord.Math.Vector3 is also used or could be introduced.
+// However, since Accord.Math.Vector3 is not directly used in a conflicting way in the snippets provided,
+// we will use full qualification for System.Numerics.Vector3 where ambiguity arises.
+// For clarity, if Accord.Math.Vector3 were used, aliasing would be:
+// using AccordVector3 = Accord.Math.Vector3;
+// using SNVector3 = System.Numerics.Vector3;
+// For now, we will use System.Numerics.Vector3 directly or fully qualified.
+using System.Numerics; // This will be System.Numerics.Vector3
 using Accord.IO;
 using AutoGen;
 using AutoGen.Core;
+using Accord.Math;
+// Graph from Tensorflow will be Tensorflow.Graph
+// Graph from AutoGen will be AutoGen.Core.Graph
 
 namespace Agentic_Mod
 {
@@ -480,7 +490,7 @@ namespace Agentic_Mod
     public class MlProcessOrchestrator
     {
         private static int _requestSessionSequenceCounter = 0; // Counter for generating unique request session IDs
-        private readonly ConcurrentDictionary<int, Session> _activeMlSessions; // Tracks active actual ML sessions by unique ID
+        private readonly ConcurrentDictionary<int, Tensorflow.Session> _activeMlSessions; // Tracks active actual ML sessions by unique ID
         private readonly ConcurrentOperationManager _operationConcurrencyManager; // Instance of the concurrency manager
 
         /// <summary>
@@ -491,7 +501,7 @@ namespace Agentic_Mod
         public MlProcessOrchestrator()
         {
             // Initializes the concurrent dictionary for tracking actual ML sessions and the concurrency manager.
-            _activeMlSessions = new ConcurrentDictionary<int, Session>();
+            _activeMlSessions = new ConcurrentDictionary<int, Tensorflow.Session>();
             _operationConcurrencyManager = new ConcurrentOperationManager();
 
             // Initialize runtime memory with simulated data from the test dataset.
@@ -504,6 +514,24 @@ namespace Agentic_Mod
             // Configure TensorFlow.NET (equivalent of disabling eager execution in older TF versions)
             // tf.compat.v1.disable_eager_execution(); // Already non-eager by default for graph mode
         }
+
+        internal static void DisposeGraphAndSession(ref Tensorflow.Graph graph, ref Tensorflow.Session session)
+        {
+            try
+            {
+                // session?.close(); // Tensorflow.Session does not have a public close() method; Dispose handles it.
+                session?.Dispose();
+                session = null;
+
+                graph?.Dispose(); // Tensorflow.Graph is IDisposable
+                graph = null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning during graph/session disposal: {ex.Message}");
+            }
+        }
+
 
         /// <summary>
         /// This method initiates the machine learning outcome generation process for a specific customer.
@@ -544,8 +572,10 @@ namespace Agentic_Mod
             // Create dedicated TensorFlow.NET sessions for the parallel processing units (Units A and B).
             // These are functional dependencies for ParallelProcessingUnitA and ParallelProcessingUnitB.
             // Note: Creating Session objects is resource-intensive. In a production scenario, consider pooling sessions or using a different TF.NET pattern.
-            Session? modelAProcessingSession = null;
-            Session? modelBProcessingSession = null;
+            // These sessions are now vestigial if Units A and B manage their own graphs and sessions internally.
+            // However, they are still created and disposed as per original structure.
+            Tensorflow.Session? modelAProcessingSession_Orchestrator = null;
+            Tensorflow.Session? modelBProcessingSession_Orchestrator = null;
             CoreMlOutcomeRecord? outcomeRecordAfterStepOne = null;
             CoreMlOutcomeRecord? finalOutcomeRecord = null;
 
@@ -569,8 +599,11 @@ namespace Agentic_Mod
                 // Create actual TensorFlow.NET sessions for the parallel processing units (Units A and B).
                 // Using separate graphs/sessions for independent parallel tasks is common.
                 // The Session itself *is* disposable and is handled in the finally block.
-                modelAProcessingSession = tf.Session(tf.Graph()); // Pass graph to session constructor
-                modelBProcessingSession = tf.Session(tf.Graph()); // Pass graph to session constructor
+                // These sessions are passed to Units A and B, but if those units create their own
+                // graphs and sessions internally per the fix, these specific session instances
+                // might not be used for the core TF operations within those units.
+                modelAProcessingSession_Orchestrator = tf.Session(tf.Graph()); // Pass graph to session constructor
+                modelBProcessingSession_Orchestrator = tf.Session(tf.Graph()); // Pass graph to session constructor
 
 
                 /// <summary>
@@ -578,8 +611,8 @@ namespace Agentic_Mod
                 /// </summary>
                 // Register the created actual ML sessions in the controller's session manager using unique IDs derived from the requestSequenceIdentifier.
                 // Operational Process Dependency: This is necessary for proper resource disposal in the 'finally' block at the end of the workflow.
-                _activeMlSessions.TryAdd(requestSequenceIdentifier * 2, modelAProcessingSession);     // Even numbered ID for Unit A session
-                _activeMlSessions.TryAdd(requestSequenceIdentifier * 2 + 1, modelBProcessingSession); // Odd numbered ID for Unit B session
+                _activeMlSessions.TryAdd(requestSequenceIdentifier * 2, modelAProcessingSession_Orchestrator);     // Even numbered ID for Unit A session
+                _activeMlSessions.TryAdd(requestSequenceIdentifier * 2 + 1, modelBProcessingSession_Orchestrator); // Odd numbered ID for Unit B session
 
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Executing Sequential Initial Processing Unit (C).");
 
@@ -628,8 +661,9 @@ namespace Agentic_Mod
                 // Subsequent Usage: The main workflow waits here until both parallel tasks complete. Their outputs are stored in 'modelAConcurrentResults' and 'modelBConcurrentResults'.
                 // Create dedicated task variables for clearer debugging and monitoring
                 // Create dedicated task variables for clearer debugging and monitoring
-                Task unitATask = ParallelProcessingUnitA(currentOutcomeRecord, customerIdentifier, requestSequenceIdentifier, modelAProcessingSession, modelAConcurrentResults);
-                Task unitBTask = ParallelProcessingUnitB(currentOutcomeRecord, customerIdentifier, requestSequenceIdentifier, modelBProcessingSession, modelBConcurrentResults);
+                // Pass the orchestrator-created sessions; Units A and B will use internal sessions for TF ops if the fix is applied as interpreted.
+                Task unitATask = ParallelProcessingUnitA(currentOutcomeRecord, customerIdentifier, requestSequenceIdentifier, modelAProcessingSession_Orchestrator, modelAConcurrentResults);
+                Task unitBTask = ParallelProcessingUnitB(currentOutcomeRecord, customerIdentifier, requestSequenceIdentifier, modelBProcessingSession_Orchestrator, modelBConcurrentResults);
 
                 try
                 {
@@ -730,17 +764,46 @@ namespace Agentic_Mod
             }
             finally
             {
-                // Cleanup: Remove and dispose the actual ML sessions created for this request from the manager.
-                // Operational Process Dependency: Depends on the sessions being added to the _activeMlSessions dictionary in Step 3.
-                // Subsequent Usage: Releases actual resources associated with this request.
+                // Cleanup: Remove and dispose the actual ML sessions created by the orchestrator from the manager.
+                // These are modelAProcessingSession_Orchestrator and modelBProcessingSession_Orchestrator.
+                // Sessions created *inside* the processing units (e.g., SequentialInitialProcessingUnitC, 
+                // ParallelProcessingUnitA, ParallelProcessingUnitB due to fixes) are disposed of in their respective finally blocks.
                 if (_activeMlSessions.TryRemove(requestSequenceIdentifier * 2, out var sessionA))
                     sessionA?.Dispose();
                 if (_activeMlSessions.TryRemove(requestSequenceIdentifier * 2 + 1, out var sessionB))
                     sessionB?.Dispose();
 
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Associated actual ML session resources cleaned up.");
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Associated actual ML session resources (orchestrator-level) cleaned up.");
             }
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -760,7 +823,7 @@ namespace Agentic_Mod
             // Declare variables outside the try block to ensure they are accessible in catch/finally
             CoreMlOutcomeRecord? retrievedOrNewOutcomeRecord = null;
             bool isNewRecord = false; // Declared outside try block
-            Session? mlSession = null; // Local session for this sequential unit
+            Tensorflow.Session? mlSession = null; // Local session for this sequential unit
             Tensorflow.Graph? graph = null; // Graph object
 
             // Added null forgiving operator (!) where needed based on flow analysis,
@@ -1121,240 +1184,163 @@ namespace Agentic_Mod
                     // ------------------------------------------
                     // TensorFlow Graph Definition and Training (Model C)
                     // ------------------------------------------
-                    // Create graph and session outside the using block that was causing issues
                     graph = tf.Graph();
-                    mlSession = tf.Session(graph); // Create session with the new graph
-
-                    // Define operations using the created graph and session
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 4 - Initializing Model C Architecture.");
-
-                    // Define placeholders for numerical and word inputs
-                    Tensor numericalInputPlaceholder = tf.placeholder(tf.float32, shape: (-1, numericalFeatureCount), name: "numerical_input_C");
-                    Tensor wordInputPlaceholder = tf.placeholder(tf.float32, shape: (-1, wordFeatureCount), name: "word_input_C");
-                    Tensor targetOutputPlaceholder = tf.placeholder(tf.float32, shape: (-1, 1), name: "target_output_C");
-
-                    // Concatenate the numerical and word input placeholders
-                    var combinedInput = tf.concat(new[] { numericalInputPlaceholder, wordInputPlaceholder }, axis: 1, name: "combined_input_C");
-
-                    // Try to load existing model parameters from the outcome record
-                    // Use the outer-scoped retrievedOrNewOutcomeRecord
-                    var existingWeights = retrievedOrNewOutcomeRecord?.SerializedSimulatedModelData == null || retrievedOrNewOutcomeRecord.SerializedSimulatedModelData.Length == 0 ?
-                        null : DeserializeFloatArray(retrievedOrNewOutcomeRecord.SerializedSimulatedModelData);
-                    var existingBias = retrievedOrNewOutcomeRecord?.AncillaryBinaryDataPayload == null || retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload.Length == 0 ?
-                        null : DeserializeFloatArray(retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload);
-
-                    // Check if existing parameters match the expected shape for the *combined* input
-                    // Model C now trains a model with 1 hidden layer (matching Step 7 structure)
-                    // Weights1: [totalInputFeatureCount, hiddenLayerSize]
-                    // Weights2: [hiddenLayerSize, 1]
-                    // Bias1: [hiddenLayerSize]
-                    // Bias2: [1]
-
-                    // For simplicity, let's hardcode a hidden layer size for Model C here, similar to the fallback in Unit A
-                    int hiddenLayerSize = 64; // Default hidden size for Model C
-
-                    // Need to check if the combined size of existing weights matches W1 + W2 size and bias size matches B1 + B2 size
-                    // Total expected weights = (totalInputFeatureCount * hiddenLayerSize) + (hiddenLayerSize * 1)
-                    int expectedTotalWeightCount = (totalInputFeatureCount * hiddenLayerSize) + (hiddenLayerSize * 1);
-                    int expectedTotalBiasCount = hiddenLayerSize + 1;
-                    // We don't check total param count as weights and biases are stored separately.
-
-
-                    bool useExistingParams = existingWeights != null && existingBias != null &&
-                                             existingWeights.Length == expectedTotalWeightCount && existingBias.Length == expectedTotalBiasCount;
-
-
-                    ResourceVariable weights1, weights2, bias1, bias2;
-
-
-                    if (!useExistingParams)
+                    using (graph.as_default()) // Ensures all ops are defined on this graph
                     {
-                        // Initialize new weights and bias if none exist or shapes don't match
-                        weights1 = tf.Variable(tf.random.normal((totalInputFeatureCount, hiddenLayerSize), stddev: 0.1f), name: "weights1_C");
-                        bias1 = tf.Variable(tf.zeros(hiddenLayerSize, dtype: tf.float32), name: "bias1_C");
-                        weights2 = tf.Variable(tf.random.normal((hiddenLayerSize, 1), stddev: 0.1f), name: "weights2_C");
-                        bias2 = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_C");
+                        mlSession = tf.Session(graph); // Create session with the new graph
 
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Initializing NEW model parameters for combined input ({totalInputFeatureCount} -> {hiddenLayerSize} -> 1).");
-                    }
-                    else
-                    {
-                        // Load existing weights and bias
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Loading EXISTING model parameters for combined input ({totalInputFeatureCount} -> {hiddenLayerSize} -> 1).");
+                        // Define operations using the created graph and session
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 4 - Initializing Model C Architecture.");
 
-                        // Split the combined byte arrays back into original float arrays based on expected sizes
-                        float[] loadedWeights1 = new float[totalInputFeatureCount * hiddenLayerSize];
-                        float[] loadedBias1 = new float[hiddenLayerSize];
-                        float[] loadedWeights2 = new float[hiddenLayerSize * 1];
-                        float[] loadedBias2 = new float[1];
+                        // Define placeholders for numerical and word inputs
+                        Tensor numericalInputPlaceholder = tf.placeholder(tf.float32, shape: (-1, numericalFeatureCount), name: "numerical_input_C");
+                        Tensor wordInputPlaceholder = tf.placeholder(tf.float32, shape: (-1, wordFeatureCount), name: "word_input_C");
+                        Tensor targetOutputPlaceholder = tf.placeholder(tf.float32, shape: (-1, 1), name: "target_output_C");
 
-                        int weightOffset = 0;
-                        System.Buffer.BlockCopy(existingWeights!, weightOffset, loadedWeights1, 0, loadedWeights1.Length * sizeof(float)); // Use null forgiving !
-                        weightOffset += loadedWeights1.Length * sizeof(float); // This should be byte length not float array length
-                        System.Buffer.BlockCopy(existingWeights!, weightOffset, loadedWeights2, 0, loadedWeights2.Length * sizeof(float)); // Same here
+                        // Concatenate the numerical and word input placeholders
+                        var combinedInput = tf.concat(new[] { numericalInputPlaceholder, wordInputPlaceholder }, axis: 1, name: "combined_input_C");
 
-                        int biasOffset = 0;
-                        System.Buffer.BlockCopy(existingBias!, biasOffset, loadedBias1, 0, loadedBias1.Length * sizeof(float)); // Use null forgiving !
-                        biasOffset += loadedBias1.Length * sizeof(float); // byte length
-                        System.Buffer.BlockCopy(existingBias!, biasOffset, loadedBias2, 0, loadedBias2.Length * sizeof(float)); // byte length
+                        // Try to load existing model parameters from the outcome record
+                        // Use the outer-scoped retrievedOrNewOutcomeRecord
+                        var existingWeights = retrievedOrNewOutcomeRecord?.SerializedSimulatedModelData == null || retrievedOrNewOutcomeRecord.SerializedSimulatedModelData.Length == 0 ?
+                            null : DeserializeFloatArray(retrievedOrNewOutcomeRecord.SerializedSimulatedModelData);
+                        var existingBias = retrievedOrNewOutcomeRecord?.AncillaryBinaryDataPayload == null || retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload.Length == 0 ?
+                            null : DeserializeFloatArray(retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload);
 
+                        int hiddenLayerSize = 64; // Default hidden size for Model C
 
-                        // Create tensors and variables
-                        weights1 = tf.Variable(tf.constant(loadedWeights1.reshape(totalInputFeatureCount, hiddenLayerSize), dtype: tf.float32), name: "weights1_C");
-                        bias1 = tf.Variable(tf.constant(loadedBias1.reshape(hiddenLayerSize), dtype: tf.float32), name: "bias1_C"); // Reshape bias1 to 1D
-                        weights2 = tf.Variable(tf.constant(loadedWeights2.reshape(hiddenLayerSize, 1), dtype: tf.float32), name: "weights2_C");
-                        bias2 = tf.Variable(tf.constant(loadedBias2.reshape(1), dtype: tf.float32), name: "bias2_C"); // Reshape bias2 to 1D
+                        int expectedTotalWeightCount = (totalInputFeatureCount * hiddenLayerSize) + (hiddenLayerSize * 1);
+                        int expectedTotalBiasCount = hiddenLayerSize + 1;
 
+                        bool useExistingParams = existingWeights != null && existingBias != null &&
+                                                 existingWeights.Length == expectedTotalWeightCount && existingBias.Length == expectedTotalBiasCount;
 
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Successfully loaded parameters.");
-                    }
+                        ResourceVariable weights1, weights2, bias1, bias2;
 
-                    // Simple feedforward network structure (Input -> ReLU Hidden -> Output)
-                    var hidden = tf.nn.relu(tf.add(tf.matmul(combinedInput, weights1), bias1), name: "hidden_C");
-                    var predictions = tf.add(tf.matmul(hidden, weights2), bias2, name: "predictions_C");
-
-                    // Loss function (Mean Squared Error)
-                    Tensor lossOp = tf.reduce_mean(tf.square(tf.subtract(predictions, targetOutputPlaceholder)), name: "loss_C");
-
-                    // Optimizer (Adam)
-                    var optimizer = tf.train.AdamOptimizer(0.001f);
-                    Operation trainOp = optimizer.minimize(lossOp);
-
-                    // Global variables initializer
-                    Operation initOp = tf.global_variables_initializer();
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined within Model C graph.");
-
-                    // Initialize variables
-                    mlSession.run(initOp);
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model C - Actual TensorFlow.NET variables initialized.");
-
-                    // ------------------------------------------
-                    // Training Loop
-                    // ------------------------------------------
-                    int numEpochs = 50; // Define number of training epochs
-                    int batchSize = 4; // Define batch size
-                    int numBatches = (batchSize > 0 && sampleCount > 0) ? (int)Math.Ceiling((double)sampleCount / batchSize) : 0;
-                    int[] indices = Enumerable.Range(0, sampleCount).ToArray(); // Indices for shuffling
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Starting Actual Training Loop for {numEpochs} epochs with {numBatches} batches.");
-
-                    for (int epoch = 0; epoch < numEpochs; epoch++)
-                    {
-                        ShuffleArray(indices); // Shuffle data indices each epoch
-                        float epochLoss = 0.0f;
-
-                        for (int batch = 0; batch < numBatches; batch++)
+                        if (!useExistingParams)
                         {
-                            int startIdx = batch * batchSize;
-                            // Corrected to use batchSize and sampleCount
-                            int endIdx = Math.Min(startIdx + batchSize, sampleCount);
-                            int batchCount = endIdx - startIdx;
-
-                            if (batchCount <= 0) continue; // Skip if batch is empty
-
-                            // Extract batches for numerical, word, and target data using shuffled indices
-                            float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount);
-                            float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount);
-                            float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
-
-                            // Create feed dictionary for the batch
-                            var feeds = new FeedItem[] {
-                   new FeedItem(numericalInputPlaceholder, batchNumerical), // Feed numerical batch
-                   new FeedItem(wordInputPlaceholder, batchWord),           // Feed word batch
-                   new FeedItem(targetOutputPlaceholder, batchTarget)       // Feed target batch
-               };
-
-                            // Run a single training step, fetching the loss
-                            var fetches = new ITensorOrOperation[] { lossOp, trainOp }; // Use ITensorOrOperation[]
-                            var results = mlSession.run(fetches, feeds);
-                            float currentBatchLoss = (float)((Tensor)results[0]).numpy()[0];
-                            epochLoss += currentBatchLoss;
-
-                            if (batch % 10 == 0 || batch == numBatches - 1)
-                            {
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, Actual Batch Loss: {currentBatchLoss:E4}");
-                            }
-                        }
-
-                        if (numBatches > 0)
-                        {
-                            epochLoss /= numBatches;
+                            weights1 = tf.Variable(tf.random.normal((totalInputFeatureCount, hiddenLayerSize), stddev: 0.1f), name: "weights1_C");
+                            bias1 = tf.Variable(tf.zeros(hiddenLayerSize, dtype: tf.float32), name: "bias1_C");
+                            weights2 = tf.Variable(tf.random.normal((hiddenLayerSize, 1), stddev: 0.1f), name: "weights2_C");
+                            bias2 = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_C");
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Initializing NEW model parameters for combined input ({totalInputFeatureCount} -> {hiddenLayerSize} -> 1).");
                         }
                         else
                         {
-                            epochLoss = float.NaN; // Indicate no batches were processed
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Loading EXISTING model parameters for combined input ({totalInputFeatureCount} -> {hiddenLayerSize} -> 1).");
+                            float[] loadedWeights1 = new float[totalInputFeatureCount * hiddenLayerSize];
+                            float[] loadedBias1 = new float[hiddenLayerSize];
+                            float[] loadedWeights2 = new float[hiddenLayerSize * 1];
+                            float[] loadedBias2 = new float[1];
+
+                            int weightParamCountW1 = totalInputFeatureCount * hiddenLayerSize;
+                            System.Buffer.BlockCopy(existingWeights!, 0, loadedWeights1, 0, loadedWeights1.Length * sizeof(float));
+                            System.Buffer.BlockCopy(existingWeights!, weightParamCountW1 * sizeof(float), loadedWeights2, 0, loadedWeights2.Length * sizeof(float));
+
+                            int biasParamCountB1 = hiddenLayerSize;
+                            System.Buffer.BlockCopy(existingBias!, 0, loadedBias1, 0, loadedBias1.Length * sizeof(float));
+                            System.Buffer.BlockCopy(existingBias!, biasParamCountB1 * sizeof(float), loadedBias2, 0, loadedBias2.Length * sizeof(float));
+
+                            weights1 = tf.Variable(tf.constant(loadedWeights1.reshape(totalInputFeatureCount, hiddenLayerSize), dtype: tf.float32), name: "weights1_C");
+                            bias1 = tf.Variable(tf.constant(loadedBias1.reshape(hiddenLayerSize), dtype: tf.float32), name: "bias1_C");
+                            weights2 = tf.Variable(tf.constant(loadedWeights2.reshape(hiddenLayerSize, 1), dtype: tf.float32), name: "weights2_C");
+                            bias2 = tf.Variable(tf.constant(loadedBias2.reshape(1), dtype: tf.float32), name: "bias2_C");
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Successfully loaded parameters.");
                         }
 
-                        if (epoch % 10 == 0 || epoch == numEpochs - 1)
+                        var hidden = tf.nn.relu(tf.add(tf.matmul(combinedInput, weights1), bias1), name: "hidden_C");
+                        var predictions = tf.add(tf.matmul(hidden, weights2), bias2, name: "predictions_C");
+                        Tensor lossOp = tf.reduce_mean(tf.square(tf.subtract(predictions, targetOutputPlaceholder)), name: "loss_C");
+                        var optimizer = tf.train.AdamOptimizer(0.001f);
+                        Operation trainOp = optimizer.minimize(lossOp);
+                        Operation initOp = tf.global_variables_initializer();
+
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined within Model C graph.");
+                        mlSession.run(initOp);
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model C - Actual TensorFlow.NET variables initialized.");
+
+                        int numEpochs = 50;
+                        int batchSize = 4;
+                        int numBatches = (batchSize > 0 && sampleCount > 0) ? (int)Math.Ceiling((double)sampleCount / batchSize) : 0;
+                        int[] indices = Enumerable.Range(0, sampleCount).ToArray();
+
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Starting Actual Training Loop for {numEpochs} epochs with {numBatches} batches.");
+                        for (int epoch = 0; epoch < numEpochs; epoch++)
                         {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Epoch Loss: {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("E4"))}");
+                            ShuffleArray(indices);
+                            float epochLoss = 0.0f;
+                            for (int batch = 0; batch < numBatches; batch++)
+                            {
+                                int startIdx = batch * batchSize;
+                                int endIdx = Math.Min(startIdx + batchSize, sampleCount);
+                                int batchCount = endIdx - startIdx;
+                                if (batchCount <= 0) continue;
+                                float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount);
+                                float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount);
+                                float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+                                var feeds = new FeedItem[] {
+                                   new FeedItem(numericalInputPlaceholder, batchNumerical),
+                                   new FeedItem(wordInputPlaceholder, batchWord),
+                                   new FeedItem(targetOutputPlaceholder, batchTarget)
+                               };
+                                var fetches = new ITensorOrOperation[] { lossOp, trainOp };
+                                var results = mlSession.run(fetches, feeds);
+                                float currentBatchLoss = (float)((Tensor)results[0]).numpy()[0];
+                                epochLoss += currentBatchLoss;
+                                if (batch % 10 == 0 || batch == numBatches - 1)
+                                {
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, Actual Batch Loss: {currentBatchLoss:E4}");
+                                }
+                            }
+                            if (numBatches > 0) epochLoss /= numBatches; else epochLoss = float.NaN;
+                            if (epoch % 10 == 0 || epoch == numEpochs - 1)
+                            {
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Epoch Loss: {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("E4"))}");
+                            }
                         }
-                    }
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model C training completed.");
 
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model C training completed.");
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting Actual Model C parameter serialization.");
+                        var finalWeightsAndBias = mlSession.run(new[] { weights1, bias1, weights2, bias2 });
+                        var finalWeights1Tensor = finalWeightsAndBias[0] as Tensor;
+                        var finalBias1Tensor = finalWeightsAndBias[1] as Tensor;
+                        var finalWeights2Tensor = finalWeightsAndBias[2] as Tensor;
+                        var finalBias2Tensor = finalWeightsAndBias[3] as Tensor;
 
-                    // ------------------------------------------
-                    // Extract and Serialize Final Model Parameters
-                    // ------------------------------------------
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting Actual Model C parameter serialization.");
-
-                    // Get the final weights and bias values using the session
-                    // Removed explicit cast (ITensorOrOperation) from ResourceVariable as they implicitly convert
-                    var finalWeightsAndBias = mlSession.run(new[] {
-                weights1,
-                bias1,
-                weights2,
-                bias2
-            });
-
-                    // Cast results to Tensor
-                    var finalWeights1Tensor = finalWeightsAndBias[0] as Tensor;
-                    var finalBias1Tensor = finalWeightsAndBias[1] as Tensor;
-                    var finalWeights2Tensor = finalWeightsAndBias[2] as Tensor;
-                    var finalBias2Tensor = finalWeightsAndBias[3] as Tensor;
-
-
-                    if (finalWeights1Tensor != null && finalBias1Tensor != null && finalWeights2Tensor != null && finalBias2Tensor != null)
-                    {
-                        var finalWeights1 = finalWeights1Tensor.ToArray<float>();
-                        var finalBias1 = finalBias1Tensor.ToArray<float>();
-                        var finalWeights2 = finalWeights2Tensor.ToArray<float>();
-                        var finalBias2 = finalBias2Tensor.ToArray<float>();
-
-                        // Combine weights and biases into the two byte arrays
-                        var combinedWeights = finalWeights1.Concat(finalWeights2).ToArray();
-                        var combinedBias = finalBias1.Concat(finalBias2).ToArray();
-
-                        retrievedOrNewOutcomeRecord!.SerializedSimulatedModelData = SerializeFloatArray(combinedWeights); // Use null-forgiving operator since we know it's not null here
-                        retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload = SerializeFloatArray(combinedBias);
-
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C actual model parameters serialized to byte arrays (Weights size: {retrievedOrNewOutcomeRecord.SerializedSimulatedModelData.Length}, Bias size: {retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload.Length}).");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Failed to fetch/serialize actual weights or bias tensors.");
-                        retrievedOrNewOutcomeRecord!.SerializedSimulatedModelData = new byte[0]; // Store empty array on failure
-                        retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload = new byte[0]; // Store empty array on failure
-                    }
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Actual Model C parameter serialization completed.");
-                }
+                        if (finalWeights1Tensor != null && finalBias1Tensor != null && finalWeights2Tensor != null && finalBias2Tensor != null)
+                        {
+                            var finalWeights1 = finalWeights1Tensor.ToArray<float>();
+                            var finalBias1 = finalBias1Tensor.ToArray<float>();
+                            var finalWeights2 = finalWeights2Tensor.ToArray<float>();
+                            var finalBias2 = finalBias2Tensor.ToArray<float>();
+                            var combinedWeights = finalWeights1.Concat(finalWeights2).ToArray();
+                            var combinedBias = finalBias1.Concat(finalBias2).ToArray();
+                            retrievedOrNewOutcomeRecord!.SerializedSimulatedModelData = SerializeFloatArray(combinedWeights);
+                            retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload = SerializeFloatArray(combinedBias);
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C actual model parameters serialized to byte arrays (Weights size: {retrievedOrNewOutcomeRecord.SerializedSimulatedModelData.Length}, Bias size: {retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload.Length}).");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C - Failed to fetch/serialize actual weights or bias tensors.");
+                            retrievedOrNewOutcomeRecord!.SerializedSimulatedModelData = new byte[0];
+                            retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload = new byte[0];
+                        }
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Actual Model C parameter serialization completed.");
+                    } // End of graph.as_default()
+                } // End of !skipTrainingFlag
 
 
                 // ------------------------------------------
                 // Save Final State to Simulated Persistence and Runtime Context
                 // ------------------------------------------
-                // Ensure the record is updated in the simulated database regardless of training success/failure/skip
                 if (retrievedOrNewOutcomeRecord != null)
                 {
                     var recordIndex = InMemoryTestDataSet.SimulatedCoreOutcomes.FindIndex(r => r.RecordIdentifier == retrievedOrNewOutcomeRecord.RecordIdentifier);
                     if (recordIndex >= 0)
                     {
-                        // Use lock for thread safety when writing to the static list
                         lock (InMemoryTestDataSet.SimulatedCoreOutcomes)
                         {
-                            InMemoryTestDataSet.SimulatedCoreOutcomes[recordIndex] = retrievedOrNewOutcomeRecord; // Update the static list entry
+                            InMemoryTestDataSet.SimulatedCoreOutcomes[recordIndex] = retrievedOrNewOutcomeRecord;
                         }
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C actual parameter data saved successfully in simulated persistent storage.");
                     }
@@ -1362,13 +1348,9 @@ namespace Agentic_Mod
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error - CoreMlOutcomeRecord with Identifier {retrievedOrNewOutcomeRecord.RecordIdentifier} not found in simulated storage during final update attempt!");
                     }
-
-                    // Store the serialized model parameters in RuntimeContext for potential use by other units (like Model B)
                     RuntimeProcessingContext.StoreContextValue("SequentialProcessingUnitC_SerializedModelData", retrievedOrNewOutcomeRecord.SerializedSimulatedModelData);
                     RuntimeProcessingContext.StoreContextValue("SequentialProcessingUnitC_AncillaryData", retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload);
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C actual model parameter data stored in Runtime Processing Context.");
-
-                    // Verification log
                     var contextCustomerIdentifier = RuntimeProcessingContext.RetrieveContextValue("CurrentCustomerIdentifier");
                     var contextProcessOneData = RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_SerializedModelData") as byte[];
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Verification (RuntimeContext) - Customer Identifier: {contextCustomerIdentifier}");
@@ -1383,14 +1365,11 @@ namespace Agentic_Mod
             {
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Unhandled Error in Sequential Initial Processing Unit C: {ex.Message}");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Stack Trace: {ex.StackTrace}");
-
-                // Ensure the outcome record data is set to empty arrays on failure
                 if (retrievedOrNewOutcomeRecord != null)
                 {
                     retrievedOrNewOutcomeRecord.SerializedSimulatedModelData = new byte[0];
                     retrievedOrNewOutcomeRecord.AncillaryBinaryDataPayload = new byte[0];
                     retrievedOrNewOutcomeRecord.CategoricalClassificationDescription = (retrievedOrNewOutcomeRecord.CategoricalClassificationDescription ?? "") + " (TrainingError)";
-                    // Attempt to save the error state to persistence
                     var recordIndex = InMemoryTestDataSet.SimulatedCoreOutcomes.FindIndex(r => r.RecordIdentifier == retrievedOrNewOutcomeRecord.RecordIdentifier);
                     if (recordIndex >= 0)
                     {
@@ -1405,27 +1384,20 @@ namespace Agentic_Mod
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error occurred but retrievedOrNewOutcomeRecord was null.");
                 }
-
-                throw; // Re-throw to be caught by the orchestrator
+                throw;
             }
             finally
             {
-                // Dispose the session if it was created
-                mlSession?.Dispose();
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C TF Session disposed.");
-                // Graph disposal is not strictly necessary as it's not IDisposable, but clearing the reference is good practice
-                // Note: In complex scenarios with multiple units sharing graph definition across calls,
-                // graph management needs careful consideration (e.g., a single graph per app lifetime).
-                // Here, a new graph is created per call to this unit.
-                graph = null;
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Graph reference cleared.");
-
+                MlProcessOrchestrator.DisposeGraphAndSession(ref graph, ref mlSession); // Use the static helper
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model C TF Graph and Session disposed.");
                 RuntimeProcessingContext.StoreContextValue("SequentialProcessingUnitC_ActiveStatus", false);
-                bool isActiveAfterExecution = (bool)RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_ActiveStatus")!; // Use null forgiving
+                bool isActiveAfterExecution = (bool)RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_ActiveStatus")!;
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialProcessingUnitC ActiveStatus property value after execution: {isActiveAfterExecution}");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Sequential Initial Processing Unit C (Actual Model C) finished.");
             }
         }
+
+
 
 
 
@@ -1466,11 +1438,13 @@ namespace Agentic_Mod
         /// <param name="outcomeRecord">The core CoreMlOutcomeRecord object being processed.</param>
         /// <param name="customerIdentifier">The identifier for the associated customer.</param>
         /// <param name="requestSequenceIdentifier">A unique identifier for the current workflow request session.</param>
-        /// <param name="mlSession">A dedicated actual TensorFlow.NET Session environment for ML tasks within this unit.</param>
+        /// <param name="mlSession_param_unused">A dedicated actual TensorFlow.NET Session environment for ML tasks within this unit (now unused internally by this unit's TF ops).</param>
         /// <param name="unitResultsStore">A thread-safe dictionary to store results and state for subsequent processing units.</param>
-        private async Task ParallelProcessingUnitA(CoreMlOutcomeRecord outcomeRecord, int customerIdentifier, int requestSequenceIdentifier, Session mlSession, ConcurrentDictionary<string, object> unitResultsStore)
+        private async Task ParallelProcessingUnitA(CoreMlOutcomeRecord outcomeRecord, int customerIdentifier, int requestSequenceIdentifier, Tensorflow.Session mlSession_param_unused, ConcurrentDictionary<string, object> unitResultsStore)
         {
             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting Parallel Processing Unit A for customer {customerIdentifier}.");
+            Tensorflow.Graph modelAGraph = null;
+            Tensorflow.Session modelASession = null;
 
             try
             {
@@ -1676,28 +1650,27 @@ namespace Agentic_Mod
                 /// <summary>
                 /// Calculates a basis vector from sample coordinates along a specific dimension.
                 /// </summary>
-                Vector3 CalculateBasisVector(Vector3[] coordinates, int dimension)
+                System.Numerics.Vector3 CalculateBasisVector(System.Numerics.Vector3[] coordinates, int dimension)
                 {
                     if (coordinates == null || coordinates.Length == 0 || dimension < 0 || dimension > 2) // Added null/empty/dimension checks
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateBasisVector. Returning zero vector.");
-                        return Vector3.Zero;
+                        return System.Numerics.Vector3.Zero;
                     }
 
                     // Start with a zero vector
-                    Vector3 basis = Vector3.Zero;
+                    System.Numerics.Vector3 basis = System.Numerics.Vector3.Zero;
 
                     // For each coordinate, extract the component from the specified dimension
                     // and use it to weight the contribution of that coordinate to the basis vector
                     foreach (var coord in coordinates)
                     {
-                        if (coord == null) continue; // Skip null coordinates
-
+                        // System.Numerics.Vector3 is a struct, so no null check needed for 'coord' itself after array check
                         // Get the component value for the specified dimension
                         float component = dimension == 0 ? coord.X : (dimension == 1 ? coord.Y : coord.Z);
 
                         // Add the weighted coordinate to the basis vector
-                        basis += new Vector3(
+                        basis += new System.Numerics.Vector3(
                             coord.X * component,
                             coord.Y * component,
                             coord.Z * component
@@ -1705,12 +1678,10 @@ namespace Agentic_Mod
                     }
 
                     // Normalize the basis vector to unit length
-                    float magnitude = (float)Math.Sqrt(basis.X * basis.X + basis.Y * basis.Y + basis.Z * basis.Z);
+                    float magnitude = basis.Length(); // System.Numerics.Vector3.Length()
                     if (magnitude > 1e-6f) // Use tolerance
                     {
-                        basis.X /= magnitude;
-                        basis.Y /= magnitude;
-                        basis.Z /= magnitude;
+                        basis = System.Numerics.Vector3.Divide(basis, magnitude); // System.Numerics.Vector3.Divide
                     }
 
                     return basis;
@@ -1719,7 +1690,7 @@ namespace Agentic_Mod
                 /// <summary>
                 /// Calculates coefficients that represent how the curvature varies in the sample space.
                 /// </summary>
-                float[] CalculateCurvatureCoefficients(Vector3[] coordinates, Vector3[] values)
+                float[] CalculateCurvatureCoefficients(System.Numerics.Vector3[] coordinates, System.Numerics.Vector3[] values)
                 {
                     if (coordinates == null || values == null || coordinates.Length == 0 || coordinates.Length != values.Length)
                     {
@@ -1734,11 +1705,8 @@ namespace Agentic_Mod
                     // For each coordinate-value pair
                     for (int i = 0; i < coordinates.Length; i++)
                     {
-                        Vector3 coord = coordinates[i];
-                        Vector3 value = values[i];
-
-                        if (coord == null || value == null) continue; // Skip invalid pairs
-
+                        System.Numerics.Vector3 coord = coordinates[i];
+                        System.Numerics.Vector3 value = values[i];
 
                         // Calculate the squared components of the coordinate
                         float x2 = coord.X * coord.X;
@@ -1751,7 +1719,7 @@ namespace Agentic_Mod
                         float yz = coord.Y * coord.Z;
 
                         // Calculate the dot product of coordinate and value
-                        float dot = coord.X * value.X + coord.Y * value.Y + coord.Z * value.Z;
+                        float dot = System.Numerics.Vector3.Dot(coord, value); // System.Numerics.Vector3.Dot
 
                         // Update the coefficients based on this sample
                         coefficients[0] += x2 * dot; // xx component
@@ -1979,9 +1947,9 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid or empty input data/indices for ExtractBatch. Returning empty batch.");
                         return new float[0, data?.GetLength(1) ?? 0];
                     }
-                    if (batchIndices.Length < startIdx + count || data.GetLength(0) < batchIndices.Length) // Moved indices/data size check after empty check, used batchIndices
+                    if (batchIndices.Length < startIdx + count || data.GetLength(0) < batchIndices.Max() + 1) // Ensure all indices in batchIndices are valid for data
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Indices or data size mismatch for ExtractBatch (data rows: {data.GetLength(0)}, indices length: {batchIndices.Length}, startIdx: {startIdx}, count: {count}). Returning empty batch.");
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Indices or data size mismatch for ExtractBatch (data rows: {data.GetLength(0)}, indices length: {batchIndices.Length}, startIdx: {startIdx}, count: {count}, max index: {batchIndices.Max()}). Returning empty batch.");
                         return new float[0, data.GetLength(1)];
                     }
 
@@ -2071,7 +2039,7 @@ namespace Agentic_Mod
                             sb.Append(string.Join(",", intArray));
                             sb.Append("]");
                         }
-                        else if (entry.Value is Vector3 vector) // Handle Vector3
+                        else if (entry.Value is System.Numerics.Vector3 vector) // Handle Vector3
                         {
                             sb.Append($"[\"{vector.X:F6}\",\"{vector.Y:F6}\",\"{vector.Z:F6}\"]");
                         }
@@ -2338,12 +2306,145 @@ namespace Agentic_Mod
                     return stabilityScore;
                 }
 
+                // Helper function to calculate plane intersection point
+                double[] CalculatePlaneIntersection(List<double[]> trajectoryPoints, int planeAxis, double tolerance)
+                {
+                    // Need at least two points to find an intersection
+                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) // Added null check
+                        return null;
+
+                    // Find the first pair of points that cross the plane (considering tolerance)
+                    for (int i = 1; i < trajectoryPoints.Count; i++)
+                    {
+                        // Added null/length checks for points
+                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < Math.Max(3, planeAxis + 1) ||
+                           trajectoryPoints[i] == null || trajectoryPoints[i].Length < Math.Max(3, planeAxis + 1))
+                        {
+                            continue; // Skip if points are invalid for the calculation
+                        }
+
+                        double v1 = trajectoryPoints[i - 1][planeAxis];
+                        double v2 = trajectoryPoints[i][planeAxis];
+
+                        // Check if points are on opposite sides of the plane
+                        // Use tolerance: one point is >= -tol and the other is <= +tol
+                        // This handles cases where a point might be exactly zero or very close
+                        bool crossedZero = (v1 >= -tolerance && v2 <= tolerance) || (v1 <= tolerance && v2 >= -tolerance);
+
+                        if (crossedZero && !((v1 >= -tolerance && v1 <= tolerance) && (v2 >= -tolerance && v2 <= tolerance))) // Ensure they aren't both near zero
+                        {
+                            // Handle the case where one point is exactly zero or very close
+                            if (Math.Abs(v1) < tolerance) return (double[])trajectoryPoints[i - 1].Clone();
+                            if (Math.Abs(v2) < tolerance) return (double[])trajectoryPoints[i].Clone();
+
+
+                            // Calculate the interpolation factor (t) where the plane is crossed
+                            // Use absolute values for interpolation based on distance from zero
+                            double t = Math.Abs(v1) / (Math.Abs(v1) + Math.Abs(v2));
+
+                            // Interpolate the exact intersection point
+                            double[] intersection = new double[3];
+                            for (int j = 0; j < 3; j++)
+                            {
+                                // Added bounds check for j
+                                if (j < trajectoryPoints[i - 1].Length && j < trajectoryPoints[i].Length)
+                                {
+                                    intersection[j] = trajectoryPoints[i - 1][j] * (1 - t) + trajectoryPoints[i][j] * t;
+                                }
+                                else
+                                {
+                                    intersection[j] = 0; // Default to 0 if coordinate doesn't exist
+                                }
+                            }
+
+                            // Explicitly set the plane axis coordinate to zero for precision
+                            if (planeAxis >= 0 && planeAxis < intersection.Length)
+                            {
+                                intersection[planeAxis] = 0.0;
+                            }
+
+
+                            return intersection;
+                        }
+                    }
+
+                    return null; // No intersection found
+                }
+
+                // Helper functions to count negative points using tolerance
+                int CountNegativePoints(List<double[]> points, int axis, double tolerance)
+                {
+                    if (points == null) return 0; // Added null check
+                    int count = 0;
+                    foreach (var point in points)
+                    {
+                        if (point != null && point.Length > axis && point[axis] < -tolerance) // Added null/length check
+                            count++;
+                    }
+                    return count;
+                }
+
+                int CountNegativeBothPoints(List<double[]> points, double tolerance)
+                {
+                    if (points == null) return 0; // Added null check
+                    int count = 0;
+                    foreach (var point in points)
+                    {
+                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) // Added null/length check
+                            count++;
+                    }
+                    return count;
+                }
+                // Find positive and negative coordinate pairs for both trajectories
+                // Use tolerance for checking signs
+                double[] FindPositiveCoordinate(List<double[]> points, double tolerance)
+                {
+                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 }; // Added null/empty check
+
+                    foreach (var point in points)
+                    {
+                        if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance) // Added null/length check
+                            return (double[])point.Clone();
+                    }
+                    // Default to first point if no suitable point found
+                    int firstIndex = points.Count > 0 ? 0 : -1;
+                    if (firstIndex != -1 && points[firstIndex] != null && points[firstIndex].Length >= 3) return (double[])points[firstIndex].Clone(); // Return clone if valid
+                    return new double[] { 0, 0, 0 }; // Default if first point invalid or list empty
+
+                }
+
+                double[] FindNegativeCoordinate(List<double[]> points, double tolerance)
+                {
+                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 }; // Added null/empty check
+
+                    foreach (var point in points)
+                    {
+                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) // Added null/length check
+                            return (double[])point.Clone();
+                    }
+
+                    // Default to last point if no suitable point found
+                    int lastIndex = points.Count > 0 ? points.Count - 1 : 0;
+                    if (lastIndex >= 0 && points[lastIndex] != null && points[lastIndex].Length >= 3) return (double[])points[lastIndex].Clone(); // Return clone if valid
+                    return new double[] { 0, 0, 0 }; // Default if last point invalid or list empty
+                }
+
+                // Calculate velocities based on trajectory and magnitude
+                double CalculateVelocity(double[] trajectory, double magnitude)
+                {
+                    // Velocity is magnitude scaled by trajectory length (which should be 1 if normalized)
+                    // This definition might be simplified; perhaps just use magnitude directly?
+                    // Let's use magnitude as a simpler measure of velocity
+                    return magnitude;
+                }
+
+
 
                 //==========================================================================
                 // Workflow Coordination
                 //==========================================================================
                 // This function coordinates the sequential execution of the eight processing stages.
-                string ExecuteProductionWorkflow(CoreMlOutcomeRecord record, int custId, Session session)
+                string ExecuteProductionWorkflow(CoreMlOutcomeRecord record, int custId, Tensorflow.Session session_param_unused) // session param is now unused here
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting multi-stage workflow for customer {custId}.");
 
@@ -2356,7 +2457,7 @@ namespace Agentic_Mod
                     unitResultsStore["FeatureTensorMappingResult"] = tensorMappingResult; // Use more general key
 
                     // Step 3: Begin Processed Feature Definition Creation
-                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition(tensorMappingResult, session, custId);
+                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition(tensorMappingResult, custId); // Removed session from params
                     unitResultsStore["ProcessedFeatureResult"] = processedFeatureResult; // Use more general key
 
                     // Step 4: Begin Feature Quality Assessment
@@ -2372,7 +2473,9 @@ namespace Agentic_Mod
                     unitResultsStore["OptimizationAnalysisResult"] = optimizationAnalysisResult; // Use more general key
 
                     // Step 7: Begin Tensor Network Training with Curvature Embedding (Includes Actual TF.NET)
-                    string trainingOutcomeResult = Stage7_TensorNetworkTraining(optimizationAnalysisResult, custId, session, unitResultsStore); // Pass optimization analysis result
+                    // Model A now creates its own session internally if modelASession is used.
+                    // The passed 'session_param_unused' (originally mlSession) is not used for TF ops in Stage7.
+                    string trainingOutcomeResult = Stage7_TensorNetworkTraining(optimizationAnalysisResult, custId, unitResultsStore);
                     unitResultsStore["TensorNetworkTrainingOutcome"] = trainingOutcomeResult; // Use more general key
 
                     // Step 8: Begin Future Performance Projection
@@ -2794,118 +2897,13 @@ namespace Agentic_Mod
                     double[] serviceYPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 1, 1e-6); // Y=0 plane;
 
 
-                    // Helper function to calculate plane intersection point
-                    double[] CalculatePlaneIntersection(List<double[]> trajectoryPoints, int planeAxis, double tolerance)
-                    {
-                        // Need at least two points to find an intersection
-                        if (trajectoryPoints == null || trajectoryPoints.Count < 2) // Added null check
-                            return null;
-
-                        // Find the first pair of points that cross the plane (considering tolerance)
-                        for (int i = 1; i < trajectoryPoints.Count; i++)
-                        {
-                            // Added null/length checks for points
-                            if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < Math.Max(3, planeAxis + 1) ||
-                               trajectoryPoints[i] == null || trajectoryPoints[i].Length < Math.Max(3, planeAxis + 1))
-                            {
-                                continue; // Skip if points are invalid for the calculation
-                            }
-
-                            double v1 = trajectoryPoints[i - 1][planeAxis];
-                            double v2 = trajectoryPoints[i][planeAxis];
-
-                            // Check if points are on opposite sides of the plane
-                            // Use tolerance: one point is >= -tol and the other is <= +tol
-                            // This handles cases where a point might be exactly zero or very close
-                            bool crossedZero = (v1 >= -tolerance && v2 <= tolerance) || (v1 <= tolerance && v2 >= -tolerance);
-
-                            if (crossedZero && !((v1 >= -tolerance && v1 <= tolerance) && (v2 >= -tolerance && v2 <= tolerance))) // Ensure they aren't both near zero
-                            {
-                                // Handle the case where one point is exactly zero or very close
-                                if (Math.Abs(v1) < tolerance) return (double[])trajectoryPoints[i - 1].Clone();
-                                if (Math.Abs(v2) < tolerance) return (double[])trajectoryPoints[i].Clone();
-
-
-                                // Calculate the interpolation factor (t) where the plane is crossed
-                                // Use absolute values for interpolation based on distance from zero
-                                double t = Math.Abs(v1) / (Math.Abs(v1) + Math.Abs(v2));
-
-                                // Interpolate the exact intersection point
-                                double[] intersection = new double[3];
-                                for (int j = 0; j < 3; j++)
-                                {
-                                    // Added bounds check for j
-                                    if (j < trajectoryPoints[i - 1].Length && j < trajectoryPoints[i].Length)
-                                    {
-                                        intersection[j] = trajectoryPoints[i - 1][j] * (1 - t) + trajectoryPoints[i][j] * t;
-                                    }
-                                    else
-                                    {
-                                        intersection[j] = 0; // Default to 0 if coordinate doesn't exist
-                                    }
-                                }
-
-                                // Explicitly set the plane axis coordinate to zero for precision
-                                if (planeAxis >= 0 && planeAxis < intersection.Length)
-                                {
-                                    intersection[planeAxis] = 0.0;
-                                }
-
-
-                                return intersection;
-                            }
-                        }
-
-                        return null; // No intersection found
-                    }
 
 
                     //==========================================================================
                     // Feature Coordinate Extraction
                     //==========================================================================
 
-                    // Find positive and negative coordinate pairs for both trajectories
-                    // Use tolerance for checking signs
-                    double[] FindPositiveCoordinate(List<double[]> points, double tolerance)
-                    {
-                        if (points == null || points.Count == 0) return new double[] { 0, 0, 0 }; // Added null/empty check
 
-                        foreach (var point in points)
-                        {
-                            if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance) // Added null/length check
-                                return (double[])point.Clone();
-                        }
-                        // Default to first point if no suitable point found
-                        int firstIndex = points.Count > 0 ? 0 : -1;
-                        if (firstIndex != -1 && points[firstIndex] != null && points[firstIndex].Length >= 3) return (double[])points[firstIndex].Clone(); // Return clone if valid
-                        return new double[] { 0, 0, 0 }; // Default if first point invalid or list empty
-
-                    }
-
-                    double[] FindNegativeCoordinate(List<double[]> points, double tolerance)
-                    {
-                        if (points == null || points.Count == 0) return new double[] { 0, 0, 0 }; // Added null/empty check
-
-                        foreach (var point in points)
-                        {
-                            if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) // Added null/length check
-                                return (double[])point.Clone();
-                        }
-
-                        // Default to last point if no suitable point found
-                        int lastIndex = points.Count > 0 ? points.Count - 1 : 0;
-                        if (lastIndex >= 0 && points[lastIndex] != null && points[lastIndex].Length >= 3) return (double[])points[lastIndex].Clone(); // Return clone if valid
-                        return new double[] { 0, 0, 0 }; // Default if last point invalid or list empty
-                    }
-
-                    // Calculate velocities based on trajectory and magnitude
-                    double CalculateVelocity(double[] trajectory, double magnitude)
-                    {
-                        // Velocity is magnitude scaled by trajectory length (which should be 1 if normalized)
-                        // This definition might be simplified; perhaps just use magnitude directly?
-                        // Let's use magnitude as a simpler measure of velocity
-                        return magnitude;
-                    }
 
 
                     //------------------------------------------
@@ -3000,30 +2998,7 @@ namespace Agentic_Mod
                     int serviceNegativeYCount = CountNegativePoints(serviceTrajectoryPoints, 1, 1e-6);
                     int serviceNegativeBothCount = CountNegativeBothPoints(serviceTrajectoryPoints, 1e-6);
 
-                    // Helper functions to count negative points using tolerance
-                    int CountNegativePoints(List<double[]> points, int axis, double tolerance)
-                    {
-                        if (points == null) return 0; // Added null check
-                        int count = 0;
-                        foreach (var point in points)
-                        {
-                            if (point != null && point.Length > axis && point[axis] < -tolerance) // Added null/length check
-                                count++;
-                        }
-                        return count;
-                    }
 
-                    int CountNegativeBothPoints(List<double[]> points, double tolerance)
-                    {
-                        if (points == null) return 0; // Added null check
-                        int count = 0;
-                        foreach (var point in points)
-                        {
-                            if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) // Added null/length check
-                                count++;
-                        }
-                        return count;
-                    }
 
                     // Log negative point counts
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative X count: {productNegativeXCount}");
@@ -3085,7 +3060,7 @@ namespace Agentic_Mod
                 //==========================================================================
                 // Step 3: Processed Feature Definition Creation
                 //==========================================================================
-                string Stage3_ProcessedFeatureDefinition(string tensorMappingResult, Session session, int custId)
+                string Stage3_ProcessedFeatureDefinition(string tensorMappingResult, int custId) // Removed Session parameter
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 3 - Creating processed feature definition for customer {custId}.");
 
@@ -3401,12 +3376,12 @@ namespace Agentic_Mod
                     // FRACTAL GENERATION AND VELOCITY DIFFUSION
                     //------------------------------------------
                     // Define velocity source points (the plane intersections) in 3D space
-                    List<(Vector3 position, float velocity, string source)> velocitySources = new List<(Vector3, float, string)>();
+                    List<(System.Numerics.Vector3 position, float velocity, string source)> velocitySources = new List<(System.Numerics.Vector3, float, string)>();
 
                     if (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) // Added length check
                     {
                         velocitySources.Add((
-                            new Vector3(0.0f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]),
+                            new System.Numerics.Vector3(0.0f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]),
                             productXPlaneVelocity,
                             "ProductX"));
                     }
@@ -3414,7 +3389,7 @@ namespace Agentic_Mod
                     if (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) // Added length check
                     {
                         velocitySources.Add((
-                            new Vector3((float)productYPlaneIntersection[0], 0.0f, (float)productYPlaneIntersection[2]),
+                            new System.Numerics.Vector3((float)productYPlaneIntersection[0], 0.0f, (float)productYPlaneIntersection[2]),
                             productYPlaneVelocity,
                             "ProductY"));
                     }
@@ -3422,7 +3397,7 @@ namespace Agentic_Mod
                     if (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) // Added length check
                     {
                         velocitySources.Add((
-                            new Vector3(0.0f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]),
+                            new System.Numerics.Vector3(0.0f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]),
                             serviceXPlaneVelocity,
                             "ServiceX"));
                     }
@@ -3430,7 +3405,7 @@ namespace Agentic_Mod
                     if (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) // Added length check
                     {
                         velocitySources.Add((
-                            new Vector3((float)serviceYPlaneIntersection[0], 0.0f, (float)serviceYPlaneIntersection[2]),
+                            new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], 0.0f, (float)serviceYPlaneIntersection[2]),
                             serviceYPlaneVelocity,
                             "ServiceY"));
                     }
@@ -3442,32 +3417,32 @@ namespace Agentic_Mod
                     }
 
                     // Generate 5 sample points within the fractal space
-                    Vector3[] samplePoints = new Vector3[5];
+                    System.Numerics.Vector3[] samplePoints = new System.Numerics.Vector3[5];
 
                     // Sample 1: Near the Product X-Plane intersection if available, otherwise default
                     samplePoints[0] = (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) ? // Added length check
-                        new Vector3(0.1f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]) :
-                        new Vector3(0.1f, 0.1f, 0.1f);
+                        new System.Numerics.Vector3(0.1f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]) :
+                        new System.Numerics.Vector3(0.1f, 0.1f, 0.1f);
 
                     // Sample 2: Near the Product Y-Plane intersection if available, otherwise default
                     samplePoints[1] = (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) ? // Added length check
-                        new Vector3((float)productYPlaneIntersection[0], 0.1f, (float)productYPlaneIntersection[2]) :
-                        new Vector3(0.5f, 0.0f, 0.0f);
+                        new System.Numerics.Vector3((float)productYPlaneIntersection[0], 0.1f, (float)productYPlaneIntersection[2]) :
+                        new System.Numerics.Vector3(0.5f, 0.0f, 0.0f);
 
                     // Sample 3: Near the Service X-Plane intersection if available, otherwise default
                     samplePoints[2] = (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) ? // Added length check
-                        new Vector3(0.1f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]) :
-                        new Vector3(0.0f, 0.8f, 0.0f);
+                        new System.Numerics.Vector3(0.1f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]) :
+                        new System.Numerics.Vector3(0.0f, 0.8f, 0.0f);
 
                     // Sample 4: Near the Service Y-Plane intersection if available, otherwise default
                     samplePoints[3] = (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) ? // Added length check
-                        new Vector3((float)serviceYPlaneIntersection[0], 0.1f, (float)serviceYPlaneIntersection[2]) :
-                        new Vector3(0.3f, 0.3f, 0.3f);
+                        new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], 0.1f, (float)serviceYPlaneIntersection[2]) :
+                        new System.Numerics.Vector3(0.3f, 0.3f, 0.3f);
 
                     // Sample 5: Average of all available intersections, or default
                     if (velocitySources.Count > 0)
                     {
-                        Vector3 sum = Vector3.Zero;
+                        System.Numerics.Vector3 sum = System.Numerics.Vector3.Zero;
                         foreach (var source in velocitySources)
                         {
                             sum += source.position;
@@ -3476,7 +3451,7 @@ namespace Agentic_Mod
                     }
                     else
                     {
-                        samplePoints[4] = new Vector3(1.0f, 1.0f, 1.0f);
+                        samplePoints[4] = new System.Numerics.Vector3(1.0f, 1.0f, 1.0f);
                     }
 
                     Console.WriteLine("========== SAMPLE POINTS ==========");
@@ -3486,7 +3461,7 @@ namespace Agentic_Mod
                     }
 
                     // Arrays to store results for each sample
-                    Vector3[] sampleValues = new Vector3[5];
+                    System.Numerics.Vector3[] sampleValues = new System.Numerics.Vector3[5];
                     int[] sampleIterations = new int[5];
                     float[] sampleVelocities = new float[5];
                     Dictionary<int, Dictionary<string, float>> sampleContributions = new Dictionary<int, Dictionary<string, float>>();
@@ -3505,8 +3480,8 @@ namespace Agentic_Mod
                     for (int sampleIndex = 0; sampleIndex < 5; sampleIndex++)
                     {
                         // Initialize the fractal computation for this sample point
-                        Vector3 c = samplePoints[sampleIndex];
-                        Vector3 z = Vector3.Zero;
+                        System.Numerics.Vector3 c = samplePoints[sampleIndex];
+                        System.Numerics.Vector3 z = System.Numerics.Vector3.Zero;
                         int iterations = 0;
                         float diffusedVelocity = 0.0f; // Will accumulate diffused velocity
 
@@ -3533,7 +3508,7 @@ namespace Agentic_Mod
                             foreach (var source in velocitySources)
                             {
                                 // Calculate distance from current z position to the velocity source
-                                float distanceSq = Vector3.DistanceSquared(z, source.position); // Use squared distance
+                                float distanceSq = System.Numerics.Vector3.DistanceSquared(z, source.position); // Use squared distance
                                 float distance = MathF.Sqrt(distanceSq);
 
 
@@ -3569,7 +3544,7 @@ namespace Agentic_Mod
                             float newPhi = Power * phi;
 
                             // Calculate the next z value
-                            z = new Vector3(
+                            z = new System.Numerics.Vector3(
                                 newR * MathF.Sin(newTheta) * MathF.Cos(newPhi),
                                 newR * MathF.Sin(newTheta) * MathF.Sin(newPhi),
                                 newR * MathF.Cos(newTheta)) + c;
@@ -3674,167 +3649,96 @@ namespace Agentic_Mod
                 // Step 7: Tensor Network Training with Curvature Embedding (Includes Actual TF.NET)
                 //==========================================================================
 
-                string Stage7_TensorNetworkTraining(string optimizationResult, int custId, Session mlSession, ConcurrentDictionary<string, object> resultsStore)
+                string Stage7_TensorNetworkTraining(string optimizationResult, int custId, ConcurrentDictionary<string, object> resultsStore)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 7 - Training tensor network for customer {custId} using Actual TF.NET Model A.");
 
                     // Disable eager execution before defining any TensorFlow operations
                     tf.compat.v1.disable_eager_execution();
-
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Disabled eager execution for TensorFlow operations.");
 
-                    //------------------------------------------
-                    // Retrieve Required Data (from previous steps and context)
-                    //------------------------------------------
-                    // FIX: Corrected the retrieval keys to match the keys used for storing in SequentialInitialProcessingUnitC
                     byte[]? modelWeightsBytes = RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_SerializedModelData") as byte[];
                     byte[]? modelBiasBytes = RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_AncillaryData") as byte[];
                     float[] eigenvalues = unitResultsStore.TryGetValue("MarketCurvatureEigenvalues", out var eigVals) && eigVals is float[] eigArray ? eigArray : new float[] { 1.0f, 1.0f, 1.0f };
-                    // Store eigenvalues in the results store for Unit D to potentially retrieve later
                     resultsStore["MarketCurvatureEigenvalues"] = eigenvalues;
-
 
                     int numEpochs = 100;
                     List<float> trainingLosses = new List<float>();
                     List<float> trainingErrors = new List<float>();
 
-                    //------------------------------------------
-                    // Sample Training Data Creation
-                    //------------------------------------------
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Creating sample training data.");
-
-                    // Define numerical sample data - using fixed samples mirroring Step 7 data
                     float[][] numericalSamples = new float[][] {
-                        new float[] { 0.3f, 0.7f, 0.1f, 0.85f },
-                        new float[] { 0.5f, 0.2f, 0.9f, 0.35f },
-                        new float[] { 0.8f, 0.6f, 0.4f, 0.55f },
-                        new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
-                        new float[] { 0.7f, 0.3f, 0.2f, 0.95f },
-                        new float[] { 0.4f, 0.5f, 0.7f, 0.65f },
-                        new float[] { 0.2f, 0.9f, 0.3f, 0.15f },
-                        new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
-                        new float[] { 0.35f, 0.65f, 0.15f, 0.80f },
-                        new float[] { 0.55f, 0.25f, 0.85f, 0.30f },
-                        new float[] { 0.75f, 0.55f, 0.45f, 0.60f },
-                        new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
-                        new float[] { 0.65f, 0.35f, 0.25f, 0.90f },
-                        new float[] { 0.45f, 0.45f, 0.65f, 0.70f },
-                        new float[] { 0.25f, 0.85f, 0.35f, 0.10f },
-                        new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
+                        new float[] { 0.3f, 0.7f, 0.1f, 0.85f }, new float[] { 0.5f, 0.2f, 0.9f, 0.35f }, new float[] { 0.8f, 0.6f, 0.4f, 0.55f }, new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
+                        new float[] { 0.7f, 0.3f, 0.2f, 0.95f }, new float[] { 0.4f, 0.5f, 0.7f, 0.65f }, new float[] { 0.2f, 0.9f, 0.3f, 0.15f }, new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
+                        new float[] { 0.35f, 0.65f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.85f, 0.30f }, new float[] { 0.75f, 0.55f, 0.45f, 0.60f }, new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
+                        new float[] { 0.65f, 0.35f, 0.25f, 0.90f }, new float[] { 0.45f, 0.45f, 0.65f, 0.70f }, new float[] { 0.25f, 0.85f, 0.35f, 0.10f }, new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
                     };
-
-                    // Define expected labels
                     float[] numericalLabels = new float[numericalSamples.Length];
                     for (int i = 0; i < numericalSamples.Length; i++)
                     {
-                        if (numericalSamples[i] == null || numericalSamples[i].Length < 4)
-                        {
-                            numericalLabels[i] = 0.0f;
-                            continue;
-                        }
-                        float x = numericalSamples[i][0];
-                        float y = numericalSamples[i][1];
-                        float z = numericalSamples[i][2];
-                        float p = numericalSamples[i][3];
-
-                        // Use a more complex formula that includes non-linear terms
-                        numericalLabels[i] = x * (float)Math.Cos(p) +
-                                            y * (float)Math.Sin(p) +
-                                            z * (float)Math.Cos(p / 2f) +
-                                            x * y * z * 0.1f; // Add non-linear interaction term
+                        if (numericalSamples[i] == null || numericalSamples[i].Length < 4) { numericalLabels[i] = 0.0f; continue; }
+                        float x = numericalSamples[i][0]; float y = numericalSamples[i][1]; float z = numericalSamples[i][2]; float p = numericalSamples[i][3];
+                        numericalLabels[i] = x * (float)Math.Cos(p) + y * (float)Math.Sin(p) + z * (float)Math.Cos(p / 2f) + x * y * z * 0.1f;
                     }
-
                     string[] wordSamples = new string[] {
-                        "market growth potential high", "customer satisfaction excellent", "product quality superior",
-                        "service delivery timely", "price competitiveness average", "brand recognition strong",
-                        "operational efficiency optimal", "supply chain resilient", "market segment expanding",
-                        "customer retention excellent", "product innovation substantial", "service response immediate",
-                        "price positioning competitive", "brand loyalty increasing", "operational costs decreasing",
-                        "supply reliability consistent"
+                        "market growth potential high", "customer satisfaction excellent", "product quality superior", "service delivery timely", "price competitiveness average", "brand recognition strong",
+                        "operational efficiency optimal", "supply chain resilient", "market segment expanding", "customer retention excellent", "product innovation substantial", "service response immediate",
+                        "price positioning competitive", "brand loyalty increasing", "operational costs decreasing", "supply reliability consistent"
                     };
-
                     float[][] wordEmbeddings = TransformWordsToEmbeddings(wordSamples);
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Created {numericalSamples.Length} numerical samples and {wordSamples.Length} word-based samples.");
 
-                    // Prepare data arrays for TensorFlow
                     float[,] numericalData = ConvertJaggedToMultidimensional(numericalSamples);
                     float[,] wordData = ConvertJaggedToMultidimensional(wordEmbeddings);
                     float[,] targetValues = new float[numericalLabels.Length, 1];
-                    for (int i = 0; i < numericalLabels.Length; i++)
-                    {
-                        targetValues[i, 0] = numericalLabels[i];
-                    }
+                    for (int i = 0; i < numericalLabels.Length; i++) { targetValues[i, 0] = numericalLabels[i]; }
 
                     int numericalFeatureCount = numericalData.GetLength(1);
                     int wordFeatureCount = wordData.GetLength(1);
                     int totalInputFeatureCount = numericalFeatureCount + wordFeatureCount;
 
-
-                    // Training configuration
                     int batchSize = 4;
                     int dataSize = numericalData.GetLength(0);
                     int actualBatchSize = Math.Min(batchSize, dataSize);
-
-                    if (actualBatchSize <= 0 && dataSize > 0)
-                    {
-                        actualBatchSize = dataSize;
-                    }
+                    if (actualBatchSize <= 0 && dataSize > 0) actualBatchSize = dataSize;
                     else if (dataSize == 0)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: No training data available. Skipping training.");
-                        resultsStore["ModelAProcessingWarning"] = "No training data available.";
-                        resultsStore["ModelAProcessingOutcome"] = 0.1f;
-                        resultsStore["ModelATrainingError"] = float.NaN;
+                        resultsStore["ModelAProcessingWarning"] = "No training data available."; resultsStore["ModelAProcessingOutcome"] = 0.1f; resultsStore["ModelATrainingError"] = float.NaN;
                         return $"TensorNetworkTrainingSkipped_Cust_{custId}_NoData";
                     }
-
-                    if (actualBatchSize <= 0)
-                    {
-                        actualBatchSize = 1;
-                    }
-
+                    if (actualBatchSize <= 0) actualBatchSize = 1;
                     int numBatches = (actualBatchSize > 0) ? (int)Math.Ceiling((double)dataSize / actualBatchSize) : 0;
                     int[] indices = Enumerable.Range(0, dataSize).ToArray();
 
-                    // Expression strings
                     string initialExpression = "1+1";
                     string regexPattern = ConvertExpressionToRegex(initialExpression);
                     string nDimensionalExpression = ConvertRegexToNDimensionalExpression(regexPattern);
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                       
+                        // modelAGraph = tf.Graph(); // This is now initialized at the method level for ParallelProcessingUnitA
+                        using (modelAGraph.as_default()) // Set as default graph for operation creation
                         {
+                            // modelASession = tf.Session(modelAGraph); // This is now initialized at the method level for ParallelProcessingUnitA
                             try
                             {
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Initializing Model A Architecture.");
-
-                                // Deserialize initial model parameters (from Unit C)
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Initializing Model A Architecture in its own graph.");
                                 float[] unitCWeightsArray = DeserializeFloatArray(modelWeightsBytes);
                                 float[] unitCBiasArray = DeserializeFloatArray(modelBiasBytes);
-
                                 int unitCHiddenSize = -1;
-                                if (unitCBiasArray.Length >= 1)
-                                {
-                                    unitCHiddenSize = unitCBiasArray.Length - 1;
-                                }
-
+                                if (unitCBiasArray.Length >= 1) unitCHiddenSize = unitCBiasArray.Length - 1;
                                 if (unitCHiddenSize <= 0 || unitCWeightsArray.Length != (totalInputFeatureCount * unitCHiddenSize) + (unitCHiddenSize * 1))
                                 {
-                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Could not reliably infer Unit C hidden size from provided parameters ({unitCBiasArray.Length} biases, {unitCWeightsArray.Length} weights, {totalInputFeatureCount} input features). Using fallback hidden layer size.");
-                                    unitCHiddenSize = 64; // Fallback hidden size if inference fails
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Could not reliably infer Unit C hidden size. Using fallback.");
+                                    unitCHiddenSize = 64;
                                 }
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A architecture parameters: Input Feats: {totalInputFeatureCount}, Hidden Size: {unitCHiddenSize}");
 
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A architecture parameters:");
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}]  - Total Input Feature Count: {totalInputFeatureCount}");
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}]  - Hidden Layer Size (derived from Unit C or fallback): {unitCHiddenSize}");
-
-                                // Generate weights with attention to outermost vertices
                                 float[,] modelAWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, unitCHiddenSize);
                                 float[,] modelAWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, unitCHiddenSize, 1);
 
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations in the default graph.");
-
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Model A.");
                                 Tensor numericalInput = tf.placeholder(tf.float32, shape: new int[] { -1, numericalFeatureCount }, name: "numerical_input_A");
                                 Tensor wordInput = tf.placeholder(tf.float32, shape: new int[] { -1, wordFeatureCount }, name: "word_input_A");
                                 Tensor targetOutput = tf.placeholder(tf.float32, shape: new int[] { -1, 1 }, name: "target_output_A");
@@ -3850,175 +3754,107 @@ namespace Agentic_Mod
                                 Operation trainOp = optimizer.minimize(loss);
                                 Tensor meanAbsError = tf.reduce_mean(tf.abs(tf.subtract(predictions, targetOutput)), name: "mae_A");
                                 Operation initOp = tf.global_variables_initializer();
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Model A.");
 
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined.");
+                                modelASession.run(initOp); // Initialize variables within the correct session
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A - Actual TensorFlow.NET variables initialized in its own session.");
 
                                 var trainingDataFeed = new FeedItem[] {
-                                new FeedItem(numericalInput, numericalData),
-                                new FeedItem(wordInput, wordData),
-                                new FeedItem(targetOutput, targetValues)
-                            };
-
-                                mlSession.run(initOp);
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A - TensorFlow.NET variables initialized.");
+                                    new FeedItem(numericalInput, numericalData), new FeedItem(wordInput, wordData), new FeedItem(targetOutput, targetValues)
+                                };
 
                                 for (int epoch = 0; epoch < numEpochs; epoch++)
                                 {
-                                    ShuffleArray(indices);
-                                    float epochLoss = 0.0f;
+                                    ShuffleArray(indices); float epochLoss = 0.0f;
                                     for (int batch = 0; batch < numBatches; batch++)
                                     {
-                                        int startIdx = batch * actualBatchSize;
-                                        int endIdx = Math.Min(startIdx + actualBatchSize, dataSize);
-                                        int batchCount = endIdx - startIdx;
-                                        if (batchCount <= 0) continue;
-                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount);
-                                        float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount);
-                                        float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+                                        int startIdx = batch * actualBatchSize; int endIdx = Math.Min(startIdx + actualBatchSize, dataSize); int batchCount = endIdx - startIdx; if (batchCount <= 0) continue;
+                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount); float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount); float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
                                         var batchFeed = new FeedItem[] {
-                                        new FeedItem(numericalInput, batchNumerical),
-                                        new FeedItem(wordInput, batchWord),
-                                        new FeedItem(targetOutput, batchTarget)
-                                    };
-                                        var results = mlSession.run(new ITensorOrOperation[] { loss, trainOp }, batchFeed);
-
-                                        float batchLossValue = 0f;
-                                        if (results != null && results.Length > 0 && results[0] is Tensor lossTensor)
-                                        {
-                                            // Corrected: Use numpy() then ToArray<float>()[0] for scalar
-                                            batchLossValue = lossTensor.numpy().ToArray<float>()[0]; // Line 3891 approx
-                                        }
+                                            new FeedItem(numericalInput, batchNumerical), new FeedItem(wordInput, batchWord), new FeedItem(targetOutput, batchTarget)
+                                        };
+                                        var results = modelASession.run(new ITensorOrOperation[] { loss, trainOp }, batchFeed); // Use modelASession
+                                        float batchLossValue = ((Tensor)results[0]).numpy().ToArray<float>()[0];
                                         epochLoss += batchLossValue;
-
-                                        if (batch % 5 == 0 || batch == numBatches - 1)
-                                        {
-                                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, Batch Loss: {batchLossValue:F6}");
-                                        }
+                                        if (batch % 5 == 0 || batch == numBatches - 1) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, Batch Loss: {batchLossValue:F6}");
                                     }
                                     if (numBatches > 0) epochLoss /= numBatches; else epochLoss = float.NaN;
                                     trainingLosses.Add(epochLoss);
                                     if (epoch % 10 == 0 || epoch == numEpochs - 1)
                                     {
-                                        var evalResults = mlSession.run(new ITensorOrOperation[] { meanAbsError }, trainingDataFeed);
-                                        float currentErrorValue = 0f;
-                                        if (evalResults != null && evalResults.Length > 0 && evalResults[0] is Tensor errorTensor)
-                                        {
-                                            // Corrected: Use numpy() then ToArray<float>()[0] for scalar
-                                            currentErrorValue = errorTensor.numpy().ToArray<float>()[0]; // Line 3908 approx
-                                        }
+                                        var evalResults = modelASession.run(new ITensorOrOperation[] { meanAbsError }, trainingDataFeed); // Use modelASession
+                                        float currentErrorValue = ((Tensor)evalResults[0]).numpy().ToArray<float>()[0];
                                         trainingErrors.Add(currentErrorValue);
                                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Loss: {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error: {currentErrorValue:F6}");
                                     }
                                 }
-
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A training completed");
 
-                                var finalResults = mlSession.run(new ITensorOrOperation[] { meanAbsError, predictions }, trainingDataFeed);
-                                float finalErrorValue = 0f;
-                                if (finalResults != null && finalResults.Length > 0 && finalResults[0] is Tensor finalErrorTensor)
-                                {
-                                    // Corrected: Use numpy() then ToArray<float>()[0] for scalar
-                                    finalErrorValue = finalErrorTensor.numpy().ToArray<float>()[0]; // Line 3921 approx
-                                }
-
-                                Tensor finalPredictionsTensor = (finalResults != null && finalResults.Length > 1 && finalResults[1] is Tensor tensor) ? tensor : null;
-                                float[] finalPredictionsFlat = finalPredictionsTensor?.ToArray<float>() ?? Array.Empty<float>();
-                                int[] finalPredictionsDims = finalPredictionsTensor?.shape.dims.Select(d => (int)d).ToArray() ?? Array.Empty<int>();
+                                var finalResults = modelASession.run(new ITensorOrOperation[] { meanAbsError, predictions }, trainingDataFeed); // Use modelASession
+                                float finalErrorValue = ((Tensor)finalResults[0]).numpy().ToArray<float>()[0];
+                                Tensor finalPredictionsTensor = (Tensor)finalResults[1];
+                                float[] finalPredictionsFlat = finalPredictionsTensor.ToArray<float>();
+                                int[] finalPredictionsDims = finalPredictionsTensor.shape.dims.Select(d => (int)d).ToArray();
 
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Predictions Shape: {string.Join(",", finalPredictionsDims)}");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat.Take(Math.Min(finalPredictionsFlat.Length, 10)).Select(p => p.ToString("F4")))}...]");
 
-                                var finalParams = mlSession.run(new ITensorOrOperation[] {
-                                (ITensorOrOperation)weights1,
-                                (ITensorOrOperation)bias1,
-                                (ITensorOrOperation)weights2,
-                                (ITensorOrOperation)bias2
-                            });
-                                var finalWeights1 = ((Tensor)finalParams[0]).ToArray<float>();
-                                var finalBias1 = ((Tensor)finalParams[1]).ToArray<float>();
-                                var finalWeights2 = ((Tensor)finalParams[2]).ToArray<float>();
-                                var finalBias2 = ((Tensor)finalParams[3]).ToArray<float>();
-
-                                byte[] trainedWeights1Bytes = SerializeFloatArray(finalWeights1);
-                                byte[] trainedBias1Bytes = SerializeFloatArray(finalBias1);
-                                byte[] trainedWeights2Bytes = SerializeFloatArray(finalWeights2);
-                                byte[] trainedBias2Bytes = SerializeFloatArray(finalBias2);
+                                var finalParams = modelASession.run(new ITensorOrOperation[] { (ITensorOrOperation)weights1, (ITensorOrOperation)bias1, (ITensorOrOperation)weights2, (ITensorOrOperation)bias2 }); // Use modelASession
+                                var finalWeights1 = ((Tensor)finalParams[0]).ToArray<float>(); var finalBias1 = ((Tensor)finalParams[1]).ToArray<float>();
+                                var finalWeights2 = ((Tensor)finalParams[2]).ToArray<float>(); var finalBias2 = ((Tensor)finalParams[3]).ToArray<float>();
+                                byte[] trainedWeights1Bytes = SerializeFloatArray(finalWeights1); byte[] trainedBias1Bytes = SerializeFloatArray(finalBias1);
+                                byte[] trainedWeights2Bytes = SerializeFloatArray(finalWeights2); byte[] trainedBias2Bytes = SerializeFloatArray(finalBias2);
                                 var byteArraysToCombine = new List<byte[]>();
-                                if (trainedWeights1Bytes != null) byteArraysToCombine.Add(trainedWeights1Bytes);
-                                if (trainedBias1Bytes != null) byteArraysToCombine.Add(trainedBias1Bytes);
-                                if (trainedWeights2Bytes != null) byteArraysToCombine.Add(trainedWeights2Bytes);
-                                if (trainedBias2Bytes != null) byteArraysToCombine.Add(trainedBias2Bytes);
+                                if (trainedWeights1Bytes != null) byteArraysToCombine.Add(trainedWeights1Bytes); if (trainedBias1Bytes != null) byteArraysToCombine.Add(trainedBias1Bytes);
+                                if (trainedWeights2Bytes != null) byteArraysToCombine.Add(trainedWeights2Bytes); if (trainedBias2Bytes != null) byteArraysToCombine.Add(trainedBias2Bytes);
                                 byte[] combinedModelAData = byteArraysToCombine.SelectMany(arr => arr).ToArray();
 
                                 if (finalPredictionsFlat != null && finalPredictionsFlat.Length > 0)
                                 {
-                                    resultsStore["ModelAPredictionsFlat"] = finalPredictionsFlat;
-                                    resultsStore["ModelAPredictionsShape"] = finalPredictionsDims;
+                                    resultsStore["ModelAPredictionsFlat"] = finalPredictionsFlat; resultsStore["ModelAPredictionsShape"] = finalPredictionsDims;
                                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Predictions stored in results dictionary ({finalPredictionsFlat.Length} values)");
                                 }
-                                else
-                                {
-                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] WARNING: Model A failed to produce predictions to store");
-                                }
+                                else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] WARNING: Model A failed to produce predictions to store"); }
 
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Mean Absolute Error: {finalErrorValue:F6}");
                                 float modelAOutcomeScore = Math.Max(0.0f, 1.0f - finalErrorValue / 0.5f);
-
-                                resultsStore["ModelAProcessingOutcome"] = modelAOutcomeScore;
-                                resultsStore["ModelATrainingError"] = finalErrorValue;
-                                resultsStore["ModelATrainingLosses"] = trainingLosses.ToArray();
-                                resultsStore["ModelATrainingErrors"] = trainingErrors.ToArray();
+                                resultsStore["ModelAProcessingOutcome"] = modelAOutcomeScore; resultsStore["ModelATrainingError"] = finalErrorValue;
+                                resultsStore["ModelATrainingLosses"] = trainingLosses.ToArray(); resultsStore["ModelATrainingErrors"] = trainingErrors.ToArray();
                                 resultsStore["ModelACombinedParameters"] = combinedModelAData;
-
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A results dictionary populated with {resultsStore.Count} entries");
 
                                 var modelMetadata = new Dictionary<string, object> {
-                                    { "EmbeddedExpression", initialExpression },
-                                    { "NDimensionalExpression", nDimensionalExpression },
-                                    { "TrainingEpochs", numEpochs },
-                                    { "FinalMeanAbsoluteError", finalErrorValue },
-                                    { "TotalInputFeatureCount", totalInputFeatureCount },
-                                    { "HiddenLayerSize", unitCHiddenSize },
-                                    { "TrainingSampleCount", dataSize },
-                                    { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
-                                    { "CurvatureEigenvalues", eigenvalues },
-                                    { "HasOutermostVertexFocus", true },
-                                    { "UsesNDimensionalIterations", true }
+                                    { "EmbeddedExpression", initialExpression }, { "NDimensionalExpression", nDimensionalExpression }, { "TrainingEpochs", numEpochs }, { "FinalMeanAbsoluteError", finalErrorValue },
+                                    { "TotalInputFeatureCount", totalInputFeatureCount }, { "HiddenLayerSize", unitCHiddenSize }, { "TrainingSampleCount", dataSize }, { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
+                                    { "CurvatureEigenvalues", eigenvalues }, { "HasOutermostVertexFocus", true }, { "UsesNDimensionalIterations", true }
                                 };
-                                string metadataJson = SerializeMetadata(modelMetadata);
-                                byte[] metadataBytes = System.Text.Encoding.UTF8.GetBytes(metadataJson);
+                                string metadataJson = SerializeMetadata(modelMetadata); byte[] metadataBytes = System.Text.Encoding.UTF8.GetBytes(metadataJson);
                                 resultsStore["ModelAMetadata"] = metadataBytes;
-
-                                RuntimeProcessingContext.StoreContextValue("model_a_params_combined", combinedModelAData);
-                                RuntimeProcessingContext.StoreContextValue("model_a_metadata", metadataBytes);
-                                RuntimeProcessingContext.StoreContextValue("model_a_expression", initialExpression);
-                                RuntimeProcessingContext.StoreContextValue("model_a_expression_nd", nDimensionalExpression);
-
+                                RuntimeProcessingContext.StoreContextValue("model_a_params_combined", combinedModelAData); RuntimeProcessingContext.StoreContextValue("model_a_metadata", metadataBytes);
+                                RuntimeProcessingContext.StoreContextValue("model_a_expression", initialExpression); RuntimeProcessingContext.StoreContextValue("model_a_expression_nd", nDimensionalExpression);
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Model A parameters saved to RuntimeContext (Size: {combinedModelAData?.Length ?? 0} bytes)");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Model A trained and saved to RuntimeProcessingContext and Results Store.");
-
                                 string result = $"TensorNetworkTrained_Cust_{custId}_MAE{finalErrorValue:F4}_Expr({initialExpression.Replace('+', 'p')})";
                                 return result;
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during Step 7 - Tensor Network Training: {ex.Message}");
-                                resultsStore["ModelAProcessingError"] = "Model A Training Error: " + ex.Message;
-                                resultsStore["ModelAProcessingOutcome"] = 0.0f;
-                                resultsStore["ModelATrainingError"] = float.NaN;
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during Step 7 - Tensor Network Training (Model A Graph Context): {ex.Message}");
+                                resultsStore["ModelAProcessingError"] = "Model A Training Error: " + ex.Message; resultsStore["ModelAProcessingOutcome"] = 0.0f; resultsStore["ModelATrainingError"] = float.NaN;
                                 throw new InvalidOperationException($"Model A training failed: {ex.Message}", ex);
                             }
-                        } // Graph context disposed here
+                        } // End of modelAGraph.as_default()
                     }
                     else
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Missing initial model parameters from Unit C for Model A training. Skipping training.");
-                        resultsStore["ModelAProcessingWarning"] = "Missing initial parameters from Unit C for training.";
-                        resultsStore["ModelAProcessingOutcome"] = 0.1f;
-                        resultsStore["ModelATrainingError"] = float.NaN;
+                        resultsStore["ModelAProcessingWarning"] = "Missing initial parameters from Unit C for training."; resultsStore["ModelAProcessingOutcome"] = 0.1f; resultsStore["ModelATrainingError"] = float.NaN;
                         return $"TensorNetworkTrainingSkipped_Cust_{custId}_MissingData";
                     }
                 }
+
+
+
 
                 //==========================================================================
                 // Step 8: Future Performance Projection
@@ -4114,7 +3950,7 @@ namespace Agentic_Mod
                 // Workflow Execution
                 //==========================================================================
                 // Execute the entire workflow through the orchestrator function.
-                var workflowResult = ExecuteProductionWorkflow(outcomeRecord, customerIdentifier, mlSession); // Call the orchestrator
+                var workflowResult = ExecuteProductionWorkflow(outcomeRecord, customerIdentifier, mlSession_param_unused); // Call the orchestrator, mlSession is passed but unused internally by Stage7
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Workflow completed with result: {workflowResult}");
 
 
@@ -4142,15 +3978,11 @@ namespace Agentic_Mod
                 //==========================================================================
                 // Cleanup
                 //==========================================================================
-                // Log the finish of the process unit.
+                MlProcessOrchestrator.DisposeGraphAndSession(ref modelAGraph, ref modelASession);
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Parallel Processing Unit A TF Graph and Session disposed.");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Parallel Processing Unit A finished.");
             }
         }
-
-
-
-
-
 
 
 
@@ -4187,11 +4019,13 @@ namespace Agentic_Mod
         /// <param name="outcomeRecord">The core CoreMlOutcomeRecord object established by SequentialInitialProcessingUnitC.</param>
         /// <param name="customerIdentifier">The customer identifier.</param>
         /// <param name="requestSequenceIdentifier">The request session identifier.</param>
-        /// <param name="mlSession">A dedicated actual TensorFlow.NET Session environment for this parallel task.</param>
+        /// <param name="mlSession_param_unused">A dedicated actual TensorFlow.NET Session environment for this parallel task (now largely unused internally by this unit's TF ops).</param>
         /// <param name="unitResultsStore">A thread-safe dictionary to store results for SequentialFinalProcessingUnitD.</param>
-        private async Task ParallelProcessingUnitB(CoreMlOutcomeRecord outcomeRecord, int customerIdentifier, int requestSequenceIdentifier, Session mlSession, ConcurrentDictionary<string, object> unitResultsStore)
+        private async Task ParallelProcessingUnitB(CoreMlOutcomeRecord outcomeRecord, int customerIdentifier, int requestSequenceIdentifier, Tensorflow.Session mlSession_param_unused, ConcurrentDictionary<string, object> unitResultsStore)
         {
             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting Parallel Processing Unit B for customer {customerIdentifier}.");
+            Tensorflow.Graph modelBGraph = null;
+            Tensorflow.Session modelBSession = null;
 
             try
             {
@@ -4201,7 +4035,7 @@ namespace Agentic_Mod
                 // to match the original structure and resolve scope issues.
                 //==========================================================================
 
-                #region Helper Methods (Required by this method)
+                #region Helper Methods (Required by this method for Unit B)
 
                 /// <summary>
                 /// Converts a simple mathematical expression into a regular expression pattern.
@@ -4408,28 +4242,27 @@ namespace Agentic_Mod
                 /// <summary>
                 /// Calculates a basis vector from sample coordinates along a specific dimension.
                 /// </summary>
-                Vector3 CalculateBasisVector(Vector3[] coordinates, int dimension)
+                System.Numerics.Vector3 CalculateBasisVector(System.Numerics.Vector3[] coordinates, int dimension)
                 {
                     if (coordinates == null || coordinates.Length == 0 || dimension < 0 || dimension > 2) // Added null/empty/dimension checks
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateBasisVector. Returning zero vector.");
-                        return Vector3.Zero;
+                        return System.Numerics.Vector3.Zero;
                     }
 
                     // Start with a zero vector
-                    Vector3 basis = Vector3.Zero;
+                    System.Numerics.Vector3 basis = System.Numerics.Vector3.Zero;
 
                     // For each coordinate, extract the component from the specified dimension
                     // and use it to weight the contribution of that coordinate to the basis vector
                     foreach (var coord in coordinates)
                     {
-                        if (coord == null) continue; // Skip null coordinates
-
+                        // System.Numerics.Vector3 is a struct, so no null check needed for 'coord' itself after array check
                         // Get the component value for the specified dimension
                         float component = dimension == 0 ? coord.X : (dimension == 1 ? coord.Y : coord.Z);
 
                         // Add the weighted coordinate to the basis vector
-                        basis += new Vector3(
+                        basis += new System.Numerics.Vector3(
                             coord.X * component,
                             coord.Y * component,
                             coord.Z * component
@@ -4437,12 +4270,10 @@ namespace Agentic_Mod
                     }
 
                     // Normalize the basis vector to unit length
-                    float magnitude = (float)Math.Sqrt(basis.X * basis.X + basis.Y * basis.Y + basis.Z * basis.Z);
+                    float magnitude = basis.Length();
                     if (magnitude > 1e-6f) // Use tolerance
                     {
-                        basis.X /= magnitude;
-                        basis.Y /= magnitude;
-                        basis.Z /= magnitude;
+                        basis = System.Numerics.Vector3.Divide(basis, magnitude);
                     }
 
                     return basis;
@@ -4451,7 +4282,7 @@ namespace Agentic_Mod
                 /// <summary>
                 /// Calculates coefficients that represent how the curvature varies in the sample space.
                 /// </summary>
-                float[] CalculateCurvatureCoefficients(Vector3[] coordinates, Vector3[] values)
+                float[] CalculateCurvatureCoefficients(System.Numerics.Vector3[] coordinates, System.Numerics.Vector3[] values)
                 {
                     if (coordinates == null || values == null || coordinates.Length == 0 || coordinates.Length != values.Length)
                     {
@@ -4466,11 +4297,8 @@ namespace Agentic_Mod
                     // For each coordinate-value pair
                     for (int i = 0; i < coordinates.Length; i++)
                     {
-                        Vector3 coord = coordinates[i];
-                        Vector3 value = values[i];
-
-                        if (coord == null || value == null) continue; // Skip invalid pairs
-
+                        System.Numerics.Vector3 coord = coordinates[i];
+                        System.Numerics.Vector3 value = values[i];
 
                         // Calculate the squared components of the coordinate
                         float x2 = coord.X * coord.X;
@@ -4483,7 +4311,7 @@ namespace Agentic_Mod
                         float yz = coord.Y * coord.Z;
 
                         // Calculate the dot product of coordinate and value
-                        float dot = coord.X * value.X + coord.Y * value.Y + coord.Z * value.Z;
+                        float dot = System.Numerics.Vector3.Dot(coord, value);
 
                         // Update the coefficients based on this sample
                         coefficients[0] += x2 * dot; // xx component
@@ -4505,8 +4333,6 @@ namespace Agentic_Mod
                             coefficients[i] /= coordinates.Length;
                         }
                     }
-
-
                     return coefficients;
                 }
 
@@ -4543,8 +4369,9 @@ namespace Agentic_Mod
                     float[] eigenvalues = new float[3];
                     // Slightly different calculation than Unit A
                     eigenvalues[0] = trace / 3.0f + 0.12f * det; // Approximation for first eigenvalue
-                    eigenvalues[1] = trace / 3.0f - 0.02f * det;              // Approximation for second eigenvalue
-                    eigenvalues[2] = trace / 3.0f - 0.10f * det; // Approximation for third eigenvalue
+                    eigenvalues[1] = trace / 3.0f - 0.03f * det; // Approximation for second eigenvalue
+                    eigenvalues[2] = trace / 3.0f - 0.09f * det; // Approximation for third eigenvalue
+
 
                     return eigenvalues;
                 }
@@ -4582,8 +4409,8 @@ namespace Agentic_Mod
                         {
                             for (int i = 0; i < weights.Length; i++)
                             {
-                                // Scale weights relative to max, with a minimum base value (different base than Unit A)
-                                weights[i] = 0.4f + 0.6f * (weights[i] / maxAbsEigenvalue); // Weights between 0.4 and 1.0
+                                // Scale weights relative to max, with a minimum base value
+                                weights[i] = 0.5f + 0.5f * (weights[i] / maxAbsEigenvalue); // Weights between 0.5 and 1.0
                             }
                         }
                         else
@@ -4621,7 +4448,6 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): CalculateOutermostVertexMask received null or insufficient rank tensor. Returning default mask.");
                         return tf.ones_like(input); // Return identity mask
                     }
-
                     // Get the shape of the input tensor
                     var shape = tf.shape(input); // Shape is (batch_size, features)
                     var batchSize = tf.slice(shape, begin: new int[] { 0 }, size: new int[] { 1 });
@@ -4634,7 +4460,7 @@ namespace Agentic_Mod
                     // Use a pattern that is high at 0 and 1, low in the middle
                     // abs(normalizedIndices - 0.5) gives values from 0.5 to 0 then back to 0.5
                     // Multiplying by 2 gives values from 1.0 to 0 then back to 1.0
-                    var featureMask = tf.multiply(tf.abs(normalizedIndices - 0.5f), 2.0f, name: "feature_vertex_mask_B"); // Shape (features_)
+                    var featureMask = tf.multiply(tf.abs(normalizedIndices - 0.5f), 2.0f, name: "feature_vertex_mask_B"); // Shape (features,)
 
 
                     // Expand the mask to match the batch dimension (batch_size, features)
@@ -4656,68 +4482,37 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): ConvertJaggedToMultidimensional received null, empty, or jagged array with null rows. Returning empty multidimensional array.");
                         return new float[0, 0];
                     }
-                    if (jaggedArray.Length > 0 && jaggedArray[0] == null) // Check if first row itself is null
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): ConvertJaggedToMultidimensional received jagged array with null first row. Returning empty multidimensional array.");
-                        return new float[0, 0];
-                    }
-                    if (jaggedArray.Length > 0 && jaggedArray[0].Length == 0) // Check after ensuring jaggedArray[0] is not null
+                    if (jaggedArray[0].Length == 0)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): ConvertJaggedToMultidimensional received jagged array with zero columns. Returning empty multidimensional array.");
                         return new float[jaggedArray.Length, 0];
                     }
 
-
                     int rows = jaggedArray.Length;
-                    int cols = (rows > 0 && jaggedArray[0] != null) ? jaggedArray[0].Length : 0; // Defensive column count
-
-                    if (cols == 0 && rows > 0) // If cols is 0 but rows > 0, it means first row was empty or null and others might not be
-                    {
-                        // Attempt to find a non-null row to determine column count
-                        for (int r = 0; r < rows; r++)
-                        {
-                            if (jaggedArray[r] != null && jaggedArray[r].Length > 0)
-                            {
-                                cols = jaggedArray[r].Length;
-                                break;
-                            }
-                        }
-                        if (cols == 0) // Still couldn't find a valid column count
-                        {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): All rows in jagged array are null or empty. Returning empty multidimensional array.");
-                            return new float[rows, 0];
-                        }
-                    }
-
+                    int cols = jaggedArray[0].Length;
 
                     float[,] result = new float[rows, cols];
 
                     for (int i = 0; i < rows; i++)
                     {
-                        if (jaggedArray[i] == null || jaggedArray[i].Length != cols)
+                        if (jaggedArray[i].Length != cols)
                         {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Row {i} in jagged array is null or has inconsistent length ({jaggedArray[i]?.Length ?? -1} vs {cols}). Padding/truncating.");
-                            int currentCols = jaggedArray[i]?.Length ?? 0;
-                            for (int j = 0; j < cols; j++) // Iterate up to expected cols
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Row {i} in jagged array has inconsistent length ({jaggedArray[i].Length} vs {cols}). Returning partial result.");
+                            int currentCols = jaggedArray[i].Length;
+                            for (int j = 0; j < Math.Min(cols, currentCols); j++)
                             {
-                                if (j < currentCols && jaggedArray[i] != null) // Check if jaggedArray[i] is not null
-                                {
-                                    result[i, j] = jaggedArray[i][j];
-                                }
-                                else
-                                {
-                                    result[i, j] = 0.0f; // Pad with default
-                                }
+                                result[i, j] = jaggedArray[i][j];
                             }
                         }
                         else
                         {
-                            System.Buffer.BlockCopy(jaggedArray[i], 0, result, i * cols * sizeof(float), cols * sizeof(float));
+                            System.Buffer.BlockCopy(jaggedArray[i], 0, result, i * cols * sizeof(float), cols * sizeof(float)); // Use System.Buffer
                         }
                     }
 
                     return result;
                 }
+
 
                 /// <summary>
                 /// Extracts a batch from a multidimensional array using indices.
@@ -4729,28 +4524,29 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Invalid or empty input data/indices for ExtractBatch. Returning empty batch.");
                         return new float[0, data?.GetLength(1) ?? 0];
                     }
-                    if (batchIndices.Length < startIdx + count || data.GetLength(0) == 0) // Check if data.GetLength(0) is 0 to avoid issues with srcIdx
+                    if (batchIndices.Length < startIdx + count || (batchIndices.Length > 0 && data.GetLength(0) <= batchIndices.Max()))
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Indices or data size mismatch for ExtractBatch (data rows: {data.GetLength(0)}, indices length: {batchIndices.Length}, startIdx: {startIdx}, count: {count}). Returning empty batch.");
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Indices or data size mismatch for ExtractBatch (data rows: {data.GetLength(0)}, indices length: {batchIndices.Length}, startIdx: {startIdx}, count: {count}, max index in batch: {(batchIndices.Length > 0 ? batchIndices.Skip(startIdx).Take(count).DefaultIfEmpty(-1).Max() : -1)}). Returning empty batch.");
                         return new float[0, data.GetLength(1)];
                     }
 
-                    if (count <= 0) return new float[0, data.GetLength(1)];
+
+                    if (count <= 0) return new float[0, data.GetLength(1)]; // Return empty batch if count is non-positive
 
                     int cols = data.GetLength(1);
                     float[,] batch = new float[count, cols];
 
                     for (int i = 0; i < count; i++)
                     {
-                        int srcIdx = batchIndices[startIdx + i];
+                        int srcIdx = batchIndices[startIdx + i]; // Used batchIndices
                         if (srcIdx < 0 || srcIdx >= data.GetLength(0))
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error (Unit B): Invalid index {srcIdx} in ExtractBatch indices array at batch index {i}. Stopping batch extraction.");
                             var partialBatch = new float[i, cols];
-                            System.Buffer.BlockCopy(batch, 0, partialBatch, 0, i * cols * sizeof(float));
+                            System.Buffer.BlockCopy(batch, 0, partialBatch, 0, i * cols * sizeof(float)); // Use System.Buffer
                             return partialBatch;
                         }
-                        System.Buffer.BlockCopy(data, srcIdx * cols * sizeof(float), batch, i * cols * sizeof(float), cols * sizeof(float));
+                        System.Buffer.BlockCopy(data, srcIdx * cols * sizeof(float), batch, i * cols * sizeof(float), cols * sizeof(float)); // Use System.Buffer
                     }
 
                     return batch;
@@ -4781,62 +4577,22 @@ namespace Agentic_Mod
                 string SerializeMetadata(Dictionary<string, object> metadata)
                 {
                     if (metadata == null) return "{}";
-
                     StringBuilder sb = new StringBuilder();
                     sb.Append("{");
-
                     bool first = true;
                     foreach (var entry in metadata)
                     {
-                        if (!first)
-                        {
-                            sb.Append(",");
-                        }
-
+                        if (!first) sb.Append(",");
                         sb.Append($"\"{entry.Key}\":");
-
-                        if (entry.Value is string strValue)
-                        {
-                            sb.Append($"\"{strValue.Replace("\"", "\\\"")}\"");
-                        }
-                        else if (entry.Value is float[] floatArray)
-                        {
-                            sb.Append("[");
-                            sb.Append(string.Join(",", floatArray.Select(f => f.ToString("F6"))));
-                            sb.Append("]");
-                        }
-                        else if (entry.Value is double[] doubleArray)
-                        {
-                            sb.Append("[");
-                            sb.Append(string.Join(",", doubleArray.Select(d => d.ToString("F6"))));
-                            sb.Append("]");
-                        }
-                        else if (entry.Value is int[] intArray)
-                        {
-                            sb.Append("[");
-                            sb.Append(string.Join(",", intArray));
-                            sb.Append("]");
-                        }
-                        else if (entry.Value is Vector3 vector)
-                        {
-                            sb.Append($"[\"{vector.X:F6}\",\"{vector.Y:F6}\",\"{vector.Z:F6}\"]");
-                        }
-                        else if (entry.Value is float floatValue)
-                        {
-                            sb.Append(floatValue.ToString("F6"));
-                        }
-                        else if (entry.Value is double doubleValue)
-                        {
-                            sb.Append(doubleValue.ToString("F6"));
-                        }
-                        else if (entry.Value is int intValue)
-                        {
-                            sb.Append(intValue.ToString());
-                        }
-                        else if (entry.Value is bool boolValue)
-                        {
-                            sb.Append(boolValue.ToString().ToLower());
-                        }
+                        if (entry.Value is string strValue) sb.Append($"\"{strValue.Replace("\"", "\\\"")}\"");
+                        else if (entry.Value is float[] floatArray) sb.Append($"[{string.Join(",", floatArray.Select(f => f.ToString("F6")))}]");
+                        else if (entry.Value is double[] doubleArray) sb.Append($"[{string.Join(",", doubleArray.Select(d => d.ToString("F6")))}]");
+                        else if (entry.Value is int[] intArray) sb.Append($"[{string.Join(",", intArray)}]");
+                        else if (entry.Value is System.Numerics.Vector3 vector) sb.Append($"[\"{vector.X:F6}\",\"{vector.Y:F6}\",\"{vector.Z:F6}\"]");
+                        else if (entry.Value is float floatValue) sb.Append(floatValue.ToString("F6"));
+                        else if (entry.Value is double doubleValue) sb.Append(doubleValue.ToString("F6"));
+                        else if (entry.Value is int intValue) sb.Append(intValue.ToString());
+                        else if (entry.Value is bool boolValue) sb.Append(boolValue.ToString().ToLower());
                         else if (entry.Value is float[,] float2DArray)
                         {
                             sb.Append("[");
@@ -4855,33 +4611,12 @@ namespace Agentic_Mod
                         }
                         else if (entry.Value != null)
                         {
-                            try
-                            {
-                                string valueStr = entry.Value.ToString();
-                                if (float.TryParse(valueStr, out _) || double.TryParse(valueStr, out _) || bool.TryParse(valueStr, out _))
-                                {
-                                    sb.Append(valueStr);
-                                }
-                                else
-                                {
-                                    sb.Append($"\"{valueStr.Replace("\"", "\\\"")}\"");
-                                }
-
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Failed to serialize metadata value for key '{entry.Key}': {ex.Message}");
-                                sb.Append("\"SerializationError\"");
-                            }
+                            try { string valueStr = entry.Value.ToString(); if (float.TryParse(valueStr, out _) || double.TryParse(valueStr, out _) || bool.TryParse(valueStr, out _)) sb.Append(valueStr); else sb.Append($"\"{valueStr.Replace("\"", "\\\"")}\""); }
+                            catch (Exception ex) { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Failed to serialize metadata value for key '{entry.Key}': {ex.Message}"); sb.Append("\"SerializationError\""); }
                         }
-                        else
-                        {
-                            sb.Append("null");
-                        }
-
+                        else sb.Append("null");
                         first = false;
                     }
-
                     sb.Append("}");
                     return sb.ToString();
                 }
@@ -4890,317 +4625,206 @@ namespace Agentic_Mod
                 // Helper function to process an array with K-means clustering
                 void ProcessArrayWithKMeans(double[] dataArray, string arrayName, ConcurrentDictionary<string, object> resultsStore)
                 {
+                    string unitBArrayName = arrayName + "_B"; // Append _B for Unit B's results
                     if (dataArray == null || dataArray.Length < 3 || dataArray.All(d => d == dataArray[0]))
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Not enough distinct data points in {arrayName} for K-means clustering or data is constant. Skipping.");
-                        resultsStore[$"{arrayName}_B_Category"] = "InsufficientData";
-                        resultsStore[$"{arrayName}_B_NormalizedValue"] = 0.0;
-                        resultsStore[$"{arrayName}_B_NormalizedX"] = 0.0;
-                        resultsStore[$"{arrayName}_B_NormalizedY"] = 0.0;
-                        resultsStore[$"{arrayName}_B_NormalizedZ"] = 0.0;
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Not enough distinct data points in {unitBArrayName} for K-means clustering or data is constant. Skipping.");
+                        resultsStore[$"{unitBArrayName}_Category"] = "InsufficientData";
+                        resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
                         return;
                     }
-
                     try
                     {
                         double[][] points = new double[dataArray.Length][];
-                        for (int i = 0; i < dataArray.Length; i++)
-                        {
-                            points[i] = new double[] { dataArray[i] };
-                        }
-
-                        int k = Math.Min(3, points.Length);
-                        if (k < 1) k = 1;
-
-                        var kmeans = new Accord.MachineLearning.KMeans(k);
-                        kmeans.Distance = new Accord.Math.Distances.SquareEuclidean();
-
+                        for (int i = 0; i < dataArray.Length; i++) points[i] = new double[] { dataArray[i] };
+                        int k = Math.Min(3, points.Length); if (k < 1) k = 1;
+                        var kmeans = new Accord.MachineLearning.KMeans(k) { Distance = new Accord.Math.Distances.SquareEuclidean() };
                         try
                         {
                             var clusters = kmeans.Learn(points);
                             double[] centroids = clusters.Centroids.Select(c => c[0]).ToArray();
-
-                            Array.Sort(centroids);
-                            Array.Reverse(centroids);
+                            Array.Sort(centroids); Array.Reverse(centroids);
                             int numCentroids = Math.Min(3, centroids.Length);
-
                             double[] paddedCentroids = new double[3];
                             for (int i = 0; i < numCentroids; i++) paddedCentroids[i] = centroids[i];
-
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] K-means centroids for {arrayName} (Unit B): [{string.Join(", ", centroids.Take(numCentroids).Select(c => c.ToString("F4")))}]");
-
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] K-means centroids for {unitBArrayName}: [{string.Join(", ", centroids.Take(numCentroids).Select(c => c.ToString("F4")))}]");
                             double centralPoint = centroids.Take(numCentroids).DefaultIfEmpty(0).Average();
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Central point for {arrayName} (Unit B): {centralPoint}");
-
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Central point for {unitBArrayName}: {centralPoint}");
                             double maxAbsCentroid = centroids.Take(numCentroids).Select(Math.Abs).DefaultIfEmpty(0).Max();
                             double normalizedValue = maxAbsCentroid > 1e-6 ? centralPoint / maxAbsCentroid : 0;
-
                             string category;
                             if (normalizedValue < -0.33) category = "Negative High";
                             else if (normalizedValue < 0) category = "Negative Low";
                             else if (normalizedValue < 0.33) category = "Positive Low";
                             else if (normalizedValue < 0.66) category = "Positive Medium";
                             else category = "Positive High";
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized value for {arrayName} (Unit B): {normalizedValue:F4}, Category: {category}");
-
-                            double x = paddedCentroids[0];
-                            double y = paddedCentroids[1];
-                            double z = paddedCentroids[2];
-
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized value for {unitBArrayName}: {normalizedValue:F4}, Category: {category}");
+                            double x = paddedCentroids[0], y = paddedCentroids[1], z = paddedCentroids[2];
                             double maxAbsCoordinate = Math.Max(Math.Max(Math.Abs(x), Math.Abs(y)), Math.Abs(z));
-                            if (maxAbsCoordinate > 1e-6)
-                            {
-                                x /= maxAbsCoordinate;
-                                y /= maxAbsCoordinate;
-                                z /= maxAbsCoordinate;
-                            }
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized XYZ coordinates for {arrayName} (Unit B): ({x:F4}, {y:F4}, {z:F4})");
-
-                            resultsStore[$"{arrayName}_B_Category"] = category;
-                            resultsStore[$"{arrayName}_B_NormalizedValue"] = normalizedValue;
-                            resultsStore[$"{arrayName}_B_NormalizedX"] = x;
-                            resultsStore[$"{arrayName}_B_NormalizedY"] = y;
-                            resultsStore[$"{arrayName}_B_NormalizedZ"] = z;
-
+                            if (maxAbsCoordinate > 1e-6) { x /= maxAbsCoordinate; y /= maxAbsCoordinate; z /= maxAbsCoordinate; }
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized XYZ coordinates for {unitBArrayName}: ({x:F4}, {y:F4}, {z:F4})");
+                            resultsStore[$"{unitBArrayName}_Category"] = category;
+                            resultsStore[$"{unitBArrayName}_NormalizedValue"] = normalizedValue;
+                            resultsStore[$"{unitBArrayName}_NormalizedX"] = x;
+                            resultsStore[$"{unitBArrayName}_NormalizedY"] = y;
+                            resultsStore[$"{unitBArrayName}_NormalizedZ"] = z;
                         }
                         catch (Exception learnEx)
                         {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during K-means Learn for {arrayName} (Unit B): {learnEx.Message}");
-                            resultsStore[$"{arrayName}_B_Category"] = "ClusteringLearnError";
-                            resultsStore[$"{arrayName}_B_NormalizedValue"] = 0.0;
-                            resultsStore[$"{arrayName}_B_NormalizedX"] = 0.0;
-                            resultsStore[$"{arrayName}_B_NormalizedY"] = 0.0;
-                            resultsStore[$"{arrayName}_B_NormalizedZ"] = 0.0;
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during K-means Learn for {unitBArrayName}: {learnEx.Message}");
+                            resultsStore[$"{unitBArrayName}_Category"] = "ClusteringLearnError"; resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error processing K-means for {arrayName} (Unit B): {ex.Message}");
-                        resultsStore[$"{arrayName}_B_Category"] = "ProcessingError";
-                        resultsStore[$"{arrayName}_B_NormalizedValue"] = 0.0;
-                        resultsStore[$"{arrayName}_B_NormalizedX"] = 0.0;
-                        resultsStore[$"{arrayName}_B_NormalizedY"] = 0.0;
-                        resultsStore[$"{arrayName}_B_NormalizedZ"] = 0.0;
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error processing K-means for {unitBArrayName}: {ex.Message}");
+                        resultsStore[$"{unitBArrayName}_Category"] = "ProcessingError"; resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
                     }
                 }
 
                 // Helper function to calculate trajectory stability
                 double CalculateTrajectoryStability(List<double[]> trajectoryPoints)
                 {
-                    if (trajectoryPoints == null || trajectoryPoints.Count < 2)
-                        return 0.5;
-
-                    double averageAngleChange = 0;
-                    int angleCount = 0;
-
+                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) return 0.5;
+                    double averageAngleChange = 0; int angleCount = 0;
                     for (int i = 1; i < trajectoryPoints.Count - 1; i++)
                     {
-                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < 3 ||
-                           trajectoryPoints[i] == null || trajectoryPoints[i].Length < 3 ||
-                           trajectoryPoints[i + 1] == null || trajectoryPoints[i + 1].Length < 3)
-                        {
-                            continue;
-                        }
-
-
-                        double[] prevVector = new double[3];
-                        double[] nextVector = new double[3];
-
-                        for (int j = 0; j < 3; j++)
-                            prevVector[j] = trajectoryPoints[i][j] - trajectoryPoints[i - 1][j];
-
-                        for (int j = 0; j < 3; j++)
-                            nextVector[j] = trajectoryPoints[i + 1][j] - trajectoryPoints[i][j];
-
-                        double dotProduct = 0;
-                        double prevMagSq = 0;
-                        double nextMagSq = 0;
-
-                        for (int j = 0; j < 3; j++)
-                        {
-                            dotProduct += prevVector[j] * nextVector[j];
-                            prevMagSq += prevVector[j] * prevVector[j];
-                            nextMagSq += nextVector[j] * nextVector[j];
-                        }
-
-                        double prevMag = Math.Sqrt(prevMagSq);
-                        double nextMag = Math.Sqrt(nextMagSq);
-
-
+                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < 3 || trajectoryPoints[i] == null || trajectoryPoints[i].Length < 3 || trajectoryPoints[i + 1] == null || trajectoryPoints[i + 1].Length < 3) continue;
+                        double[] prevVector = new double[3], nextVector = new double[3];
+                        for (int j = 0; j < 3; j++) prevVector[j] = trajectoryPoints[i][j] - trajectoryPoints[i - 1][j];
+                        for (int j = 0; j < 3; j++) nextVector[j] = trajectoryPoints[i + 1][j] - trajectoryPoints[i][j];
+                        double dotProduct = 0, prevMagSq = 0, nextMagSq = 0;
+                        for (int j = 0; j < 3; j++) { dotProduct += prevVector[j] * nextVector[j]; prevMagSq += prevVector[j] * prevVector[j]; nextMagSq += nextVector[j] * nextVector[j]; }
+                        double prevMag = Math.Sqrt(prevMagSq), nextMag = Math.Sqrt(nextMagSq);
                         if (prevMag > 1e-9 && nextMag > 1e-9)
                         {
                             double cosAngle = dotProduct / (prevMag * nextMag);
                             cosAngle = Math.Max(-1.0, Math.Min(1.0, cosAngle));
                             double angle = Math.Acos(cosAngle);
-                            averageAngleChange += angle;
-                            angleCount++;
+                            averageAngleChange += angle; angleCount++;
                         }
                     }
-
-                    if (angleCount > 0)
-                        averageAngleChange /= angleCount;
-                    else
-                        return 0.5;
-
-                    double stabilityScore = 1.0 - (averageAngleChange / Math.PI);
-                    return stabilityScore;
+                    if (angleCount > 0) averageAngleChange /= angleCount; else return 0.5;
+                    return 1.0 - (averageAngleChange / Math.PI);
                 }
 
                 // Helper function to calculate plane intersection point
                 double[] CalculatePlaneIntersection(List<double[]> trajectoryPoints, int planeAxis, double tolerance)
                 {
-                    if (trajectoryPoints == null || trajectoryPoints.Count < 2)
-                        return null;
-
+                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) return null;
                     for (int i = 1; i < trajectoryPoints.Count; i++)
                     {
-                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < Math.Max(3, planeAxis + 1) ||
-                           trajectoryPoints[i] == null || trajectoryPoints[i].Length < Math.Max(3, planeAxis + 1))
-                        {
-                            continue;
-                        }
-
-                        double v1 = trajectoryPoints[i - 1][planeAxis];
-                        double v2 = trajectoryPoints[i][planeAxis];
-
+                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < Math.Max(3, planeAxis + 1) || trajectoryPoints[i] == null || trajectoryPoints[i].Length < Math.Max(3, planeAxis + 1)) continue;
+                        double v1 = trajectoryPoints[i - 1][planeAxis], v2 = trajectoryPoints[i][planeAxis];
                         bool crossedZero = (v1 >= -tolerance && v2 <= tolerance) || (v1 <= tolerance && v2 >= -tolerance);
-
                         if (crossedZero && !((v1 >= -tolerance && v1 <= tolerance) && (v2 >= -tolerance && v2 <= tolerance)))
                         {
                             if (Math.Abs(v1) < tolerance) return (double[])trajectoryPoints[i - 1].Clone();
                             if (Math.Abs(v2) < tolerance) return (double[])trajectoryPoints[i].Clone();
-
                             double t = Math.Abs(v1) / (Math.Abs(v1) + Math.Abs(v2));
-
                             double[] intersection = new double[3];
-                            for (int j = 0; j < 3; j++)
-                            {
-                                if (j < trajectoryPoints[i - 1].Length && j < trajectoryPoints[i].Length)
-                                {
-                                    intersection[j] = trajectoryPoints[i - 1][j] * (1 - t) + trajectoryPoints[i][j] * t;
-                                }
-                                else
-                                {
-                                    intersection[j] = 0;
-                                }
-                            }
-
-                            if (planeAxis >= 0 && planeAxis < intersection.Length)
-                            {
-                                intersection[planeAxis] = 0.0;
-                            }
+                            for (int j = 0; j < 3; j++) { if (j < trajectoryPoints[i - 1].Length && j < trajectoryPoints[i].Length) intersection[j] = trajectoryPoints[i - 1][j] * (1 - t) + trajectoryPoints[i][j] * t; else intersection[j] = 0; }
+                            if (planeAxis >= 0 && planeAxis < intersection.Length) intersection[planeAxis] = 0.0;
                             return intersection;
                         }
                     }
                     return null;
                 }
 
-
                 // Helper functions to count negative points using tolerance
                 int CountNegativePoints(List<double[]> points, int axis, double tolerance)
                 {
-                    if (points == null) return 0;
-                    int count = 0;
-                    foreach (var point in points)
-                    {
-                        if (point != null && point.Length > axis && point[axis] < -tolerance)
-                            count++;
-                    }
+                    if (points == null) return 0; int count = 0;
+                    foreach (var point in points) { if (point != null && point.Length > axis && point[axis] < -tolerance) count++; }
                     return count;
                 }
 
                 int CountNegativeBothPoints(List<double[]> points, double tolerance)
                 {
-                    if (points == null) return 0;
-                    int count = 0;
-                    foreach (var point in points)
-                    {
-                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance)
-                            count++;
-                    }
+                    if (points == null) return 0; int count = 0;
+                    foreach (var point in points) { if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) count++; }
                     return count;
                 }
 
-                // Helper function to calculate velocity
-                double CalculateVelocity(double[] trajectory, double magnitude)
-                {
-                    return magnitude;
-                }
-
-                // Helper function to find positive coordinate
                 double[] FindPositiveCoordinate(List<double[]> points, double tolerance)
                 {
                     if (points == null || points.Count == 0) return new double[] { 0, 0, 0 };
-
-                    foreach (var point in points)
-                    {
-                        if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance)
-                            return (double[])point.Clone();
-                    }
+                    foreach (var point in points) { if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance) return (double[])point.Clone(); }
                     int firstIndex = points.Count > 0 ? 0 : -1;
                     if (firstIndex != -1 && points[firstIndex] != null && points[firstIndex].Length >= 3) return (double[])points[firstIndex].Clone();
                     return new double[] { 0, 0, 0 };
                 }
 
-                // Helper function to find negative coordinate
                 double[] FindNegativeCoordinate(List<double[]> points, double tolerance)
                 {
                     if (points == null || points.Count == 0) return new double[] { 0, 0, 0 };
-
-                    foreach (var point in points)
-                    {
-                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance)
-                            return (double[])point.Clone();
-                    }
-
-                    int lastIndex = points.Count > 0 ? points.Count - 1 : 0; // Corrected from points.Count -1 to points.Count > 0 ? points.Count -1 : 0
+                    foreach (var point in points) { if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) return (double[])point.Clone(); }
+                    int lastIndex = points.Count > 0 ? points.Count - 1 : 0;
                     if (lastIndex >= 0 && points[lastIndex] != null && points[lastIndex].Length >= 3) return (double[])points[lastIndex].Clone();
                     return new double[] { 0, 0, 0 };
                 }
 
-                #endregion
+                double CalculateVelocity(double[] trajectory, double magnitude) { return magnitude; }
+
+                #endregion // End of Helper Methods for Unit B
+
 
                 //==========================================================================
                 // Workflow Coordination
                 //==========================================================================
-                string ExecuteProductionWorkflow_B(CoreMlOutcomeRecord record, int custId, Session session)
+                // This function coordinates the sequential execution of the eight processing stages.
+                string ExecuteProductionWorkflow_B(CoreMlOutcomeRecord record, int custId, Tensorflow.Session session_param_unused) // session param is now unused here
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting multi-stage workflow (Unit B) for customer {custId}.");
 
+                    // Step 1: Begin Data Acquisition and Initial Feature Analysis
                     string analysisResult = Stage1_DataAcquisitionAndAnalysis_B(record, custId);
                     unitResultsStore["B_DataAcquisitionResult"] = analysisResult;
 
+                    // Step 2: Begin Feature Tensor Generation and Trajectory Mapping
                     string tensorMappingResult = Stage2_FeatureTensorAndMapping_B(analysisResult, custId);
                     unitResultsStore["B_FeatureTensorMappingResult"] = tensorMappingResult;
 
-                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition_B(tensorMappingResult, session, custId);
+                    // Step 3: Begin Processed Feature Definition Creation
+                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition_B(tensorMappingResult, custId); // Removed session from params
                     unitResultsStore["B_ProcessedFeatureResult"] = processedFeatureResult;
 
+                    // Step 4: Begin Feature Quality Assessment
                     string qualityAssessmentResult = Stage4_FeatureQualityAssessment_B(processedFeatureResult, custId);
                     unitResultsStore["B_QualityAssessmentResult"] = qualityAssessmentResult;
 
+                    // Step 5: Begin Combined Feature Evaluation
                     float combinedEvaluationScore = Stage5_CombinedFeatureEvaluation_B(qualityAssessmentResult, custId);
                     unitResultsStore["B_CombinedEvaluationScore"] = combinedEvaluationScore;
 
+                    // Step 6: Begin Fractal Optimization Analysis
                     string optimizationAnalysisResult = Stage6_FractalOptimizationAnalysis_B(qualityAssessmentResult, combinedEvaluationScore, custId);
                     unitResultsStore["B_OptimizationAnalysisResult"] = optimizationAnalysisResult;
 
-                    string trainingOutcomeResult = Stage7_TensorNetworkTraining_B(optimizationAnalysisResult, custId, session, unitResultsStore);
+                    // Step 7: Begin Tensor Network Training with Curvature Embedding (Includes Actual TF.NET)
+                    // Model B now creates its own session internally.
+                    // The passed 'session_param_unused' (originally mlSession) is not used for TF ops in Stage7.
+                    string trainingOutcomeResult = Stage7_TensorNetworkTraining_B(optimizationAnalysisResult, custId, unitResultsStore);
                     unitResultsStore["B_TensorNetworkTrainingOutcome"] = trainingOutcomeResult;
 
+                    // Step 8: Begin Future Performance Projection
                     string performanceProjectionResult = Stage8_FutureProjection_B(trainingOutcomeResult, combinedEvaluationScore, custId);
                     unitResultsStore["B_PerformanceProjectionResult"] = performanceProjectionResult;
 
 
+                    // Final workflow result combines key outputs - Use the projected score as the final outcome
                     float finalScore = unitResultsStore.TryGetValue("B_ProjectedPerformanceScore", out var projectedScoreVal) && projectedScoreVal is float projectedFloat ? projectedFloat : combinedEvaluationScore;
 
 
-                    unitResultsStore["ModelBProcessingOutcome"] = finalScore;
+                    // Make sure to store the score with BOTH keys - the unit-specific and the standard key expected by Unit D
+                    unitResultsStore["ModelBProcessingOutcome"] = finalScore; // Standard key for Unit D
+                    // unitResultsStore["B_FinalScore"] = finalScore; // Unit-specific key if needed
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Workflow (Unit B) completed for customer {custId} with final score {finalScore:F4}");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: ModelBProcessingOutcome stored: {unitResultsStore.ContainsKey("ModelBProcessingOutcome")}");
 
                     return $"Workflow_B_Complete_Cust_{custId}_FinalScore_{finalScore:F4}";
                 }
@@ -5370,15 +4994,15 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Trajectory (Unit B): ({servTrajectory[0]:F4}, {servTrajectory[1]:F4}, {servTrajectory[2]:F4})");
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- TRAJECTORY PLOT GENERATION & ANALYSIS (Unit B) -----");
-                    const int MAX_RECURSION_DEPTH = 40;
-                    const double CONTINUE_PAST_PLANE = -1.5;
+                    const int MAX_RECURSION_DEPTH = 40; // Different from Unit A for variation
+                    const double CONTINUE_PAST_PLANE = -1.5; // Different from Unit A
                     List<double[]> productTrajectoryPoints = new List<double[]>();
                     List<double> productPointIntensities = new List<double>();
                     List<double[]> serviceTrajectoryPoints = new List<double[]>();
                     List<double> servicePointIntensities = new List<double>();
                     double[] productCurrentPosition = new double[] { prodOverallTensorX, prodOverallTensorY, prodOverallTensorZ };
                     double[] serviceCurrentPosition = new double[] { servOverallTensorX, servOverallTensorY, servOverallTensorZ };
-                    double recursionFactor = 0.90;
+                    double recursionFactor = 0.90; // Different from Unit A
 
                     double[] InvertTrajectoryIfNeeded(double[] trajectory)
                     {
@@ -5442,11 +5066,11 @@ namespace Agentic_Mod
                             if (beyondYPlane) positionInfo += " BEYOND-Y-PLANE";
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B {trajectoryName} point {depth}: Position=({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4}), Intensity={currentPointIntensity:F4}{positionInfo}");
                         }
-                        double stepMultiplier = 1.0;
+                        double stepMultiplier = 1.0; // Different step logic for B
                         if (depth < 15) stepMultiplier = 2.5;
                         else if (!beyondBothPlanes && depth < MAX_RECURSION_DEPTH - 10) stepMultiplier = 2.0;
                         else stepMultiplier = 1.2;
-                        double stepSize = magnitude * Math.Pow(recursionFactor, depth) * 0.3 * stepMultiplier;
+                        double stepSize = magnitude * Math.Pow(recursionFactor, depth) * 0.3 * stepMultiplier; // Smaller base step for B
                         double[] nextPosition = new double[3];
                         for (int i = 0; i < 3; i++) nextPosition[i] = currentPosition[i] + trajectory[i] * stepSize;
                         RecursivePlotTrajectory(nextPosition, trajectory, magnitude, points, intensities, depth + 1, trajectoryName);
@@ -5536,7 +5160,7 @@ namespace Agentic_Mod
                 //==========================================================================
                 // Step 3 (Unit B): Processed Feature Definition Creation
                 //==========================================================================
-                string Stage3_ProcessedFeatureDefinition_B(string tensorMappingResult, Session session, int custId)
+                string Stage3_ProcessedFeatureDefinition_B(string tensorMappingResult, int custId)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 3 (Unit B) - Creating processed feature definition for customer {custId}.");
 
@@ -5607,9 +5231,9 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA intersection quality (Unit B): {intersectionQuality:F4}");
                     }
 
-                    double qaScore = velocityComponent * 0.35 + trajectoryStability * 0.35 + intersectionQuality * 0.30;
+                    double qaScore = velocityComponent * 0.35 + trajectoryStability * 0.35 + intersectionQuality * 0.30; // Different weights for B
                     qaScore = Math.Min(qaScore, 1.0);
-                    int qaLevel = (int)(qaScore * 4) + 1;
+                    int qaLevel = (int)(qaScore * 4) + 1; // Different level scaling for B
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA final score (Unit B): {qaScore:F4}, level: {qaLevel}");
                     string result = $"QualityAssessment_B_Passed_Level_{qaLevel}_V{velocityComponent:F2}_S{trajectoryStability:F2}_I{intersectionQuality:F2}";
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 4 (Unit B) - Feature quality assessment completed: {result}");
@@ -5653,10 +5277,10 @@ namespace Agentic_Mod
                         alignmentScore = (alignmentScore + 1.0) / 2.0;
                     }
 
-                    float baseScore = 0.65f + (custId % 12) / 15.0f;
-                    float velocityBonus = (float)((productVelocity + serviceVelocity) / 3.5);
-                    float alignmentBonus = (float)(alignmentScore / 4);
-                    float negativeBonus = (float)(Math.Min(totalNegativePoints, 15) / 40.0);
+                    float baseScore = 0.65f + (custId % 12) / 15.0f; // Different base for B
+                    float velocityBonus = (float)((productVelocity + serviceVelocity) / 3.5); // Different velocity bonus scaling
+                    float alignmentBonus = (float)(alignmentScore / 4); // Different alignment bonus scaling
+                    float negativeBonus = (float)(Math.Min(totalNegativePoints, 15) / 40.0); // Different negative bonus scaling
                     float result = Math.Min(baseScore + velocityBonus + alignmentBonus + negativeBonus, 1.0f);
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 5 (Unit B) - Combined feature evaluation calculation.");
@@ -5690,9 +5314,9 @@ namespace Agentic_Mod
                     if (serviceXPlaneIntersection != null) Console.WriteLine($"Service X-Plane Intersection (Unit B): (0.0, {serviceXPlaneIntersection[1]:F6}, {serviceXPlaneIntersection[2]:F6})"); else Console.WriteLine("Service X-Plane Intersection (Unit B): null");
                     if (serviceYPlaneIntersection != null) Console.WriteLine($"Service Y-Plane Intersection (Unit B): ({serviceYPlaneIntersection[0]:F6}, 0.0, {serviceYPlaneIntersection[2]:F6})"); else Console.WriteLine("Service Y-Plane Intersection (Unit B): null");
 
-                    const int Power = 6;
-                    const float EscapeThreshold = 2.5f;
-                    const int MaxIterations = 40;
+                    const int Power = 6; // Different Power for B
+                    const float EscapeThreshold = 2.5f; // Different Threshold for B
+                    const int MaxIterations = 40; // Different Iterations for B
 
                     float productXPlaneVelocity = (float)(productXPlaneIntersection != null ? productVelocity : 0.0);
                     float productYPlaneVelocity = (float)(productYPlaneIntersection != null ? productVelocity : 0.0);
@@ -5705,27 +5329,27 @@ namespace Agentic_Mod
                     Console.WriteLine($"Service X-Plane Velocity (Unit B): {serviceXPlaneVelocity:F4}");
                     Console.WriteLine($"Service Y-Plane Velocity (Unit B): {serviceYPlaneVelocity:F4}");
 
-                    List<(Vector3 position, float velocity, string source)> velocitySources = new List<(Vector3, float, string)>();
-                    if (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) velocitySources.Add((new Vector3(0.0f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]), productXPlaneVelocity * 1.1f, "ProductX_B"));
-                    if (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) velocitySources.Add((new Vector3((float)productYPlaneIntersection[0], 0.0f, (float)productYPlaneIntersection[2]), productYPlaneVelocity * 1.1f, "ProductY_B"));
-                    if (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) velocitySources.Add((new Vector3(0.0f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]), serviceXPlaneVelocity * 1.1f, "ServiceX_B"));
-                    if (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) velocitySources.Add((new Vector3((float)serviceYPlaneIntersection[0], 0.0f, (float)serviceYPlaneIntersection[2]), serviceYPlaneVelocity * 1.1f, "ServiceY_B"));
+                    List<(System.Numerics.Vector3 position, float velocity, string source)> velocitySources = new List<(System.Numerics.Vector3, float, string)>();
+                    if (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3(0.0f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]), productXPlaneVelocity * 1.1f, "ProductX_B"));
+                    if (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3((float)productYPlaneIntersection[0], 0.0f, (float)productYPlaneIntersection[2]), productYPlaneVelocity * 1.1f, "ProductY_B"));
+                    if (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3(0.0f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]), serviceXPlaneVelocity * 1.1f, "ServiceX_B"));
+                    if (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], 0.0f, (float)serviceYPlaneIntersection[2]), serviceYPlaneVelocity * 1.1f, "ServiceY_B"));
 
                     Console.WriteLine("========== VELOCITY SOURCES (Unit B) ==========");
                     foreach (var source in velocitySources) Console.WriteLine($"{source.source} Source Position (Unit B): ({source.position.X:F4}, {source.position.Y:F4}, {source.position.Z:F4}), Velocity: {source.velocity:F4}");
 
-                    Vector3[] samplePoints = new Vector3[6];
-                    samplePoints[0] = (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) ? new Vector3(-0.05f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]) : new Vector3(-0.05f, 0.1f, 0.1f);
-                    samplePoints[1] = (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) ? new Vector3((float)productYPlaneIntersection[0], -0.05f, (float)productYPlaneIntersection[2]) : new Vector3(0.5f, -0.05f, 0.0f);
-                    samplePoints[2] = (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) ? new Vector3(-0.05f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]) : new Vector3(-0.05f, 0.8f, 0.0f);
-                    samplePoints[3] = (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) ? new Vector3((float)serviceYPlaneIntersection[0], -0.05f, (float)serviceYPlaneIntersection[2]) : new Vector3(0.3f, -0.05f, 0.3f);
-                    if (velocitySources.Count > 0) { Vector3 sum = Vector3.Zero; foreach (var source in velocitySources) sum += source.position; samplePoints[4] = sum / velocitySources.Count; } else { samplePoints[4] = new Vector3(1.0f, 1.0f, 1.0f); }
-                    samplePoints[5] = new Vector3(0f, 0f, 0f);
+                    System.Numerics.Vector3[] samplePoints = new System.Numerics.Vector3[6]; // 6 samples for B
+                    samplePoints[0] = (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3(-0.05f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]) : new System.Numerics.Vector3(-0.05f, 0.1f, 0.1f);
+                    samplePoints[1] = (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3((float)productYPlaneIntersection[0], -0.05f, (float)productYPlaneIntersection[2]) : new System.Numerics.Vector3(0.5f, -0.05f, 0.0f);
+                    samplePoints[2] = (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3(-0.05f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]) : new System.Numerics.Vector3(-0.05f, 0.8f, 0.0f);
+                    samplePoints[3] = (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], -0.05f, (float)serviceYPlaneIntersection[2]) : new System.Numerics.Vector3(0.3f, -0.05f, 0.3f);
+                    if (velocitySources.Count > 0) { System.Numerics.Vector3 sum = System.Numerics.Vector3.Zero; foreach (var source in velocitySources) sum += source.position; samplePoints[4] = sum / velocitySources.Count; } else { samplePoints[4] = new System.Numerics.Vector3(1.0f, 1.0f, 1.0f); }
+                    samplePoints[5] = new System.Numerics.Vector3(0f, 0f, 0f); // Additional center point for B
 
                     Console.WriteLine("========== SAMPLE POINTS (Unit B) ==========");
                     for (int i = 0; i < samplePoints.Length; i++) Console.WriteLine($"Sample {i + 1} Coordinates (Unit B): ({samplePoints[i].X:F4}, {samplePoints[i].Y:F4}, {samplePoints[i].Z:F4})");
 
-                    Vector3[] sampleValues = new Vector3[samplePoints.Length];
+                    System.Numerics.Vector3[] sampleValues = new System.Numerics.Vector3[samplePoints.Length];
                     int[] sampleIterations = new int[samplePoints.Length];
                     float[] sampleVelocities = new float[samplePoints.Length];
                     Dictionary<int, Dictionary<string, float>> sampleContributions = new Dictionary<int, Dictionary<string, float>>();
@@ -5733,8 +5357,8 @@ namespace Agentic_Mod
 
                     for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
                     {
-                        Vector3 c = samplePoints[sampleIndex];
-                        Vector3 z = Vector3.Zero;
+                        System.Numerics.Vector3 c = samplePoints[sampleIndex];
+                        System.Numerics.Vector3 z = System.Numerics.Vector3.Zero;
                         int iterations = 0;
                         float diffusedVelocity = 0.0f;
                         Console.WriteLine($"========== PROCESSING SAMPLE {sampleIndex + 1} (Unit B) ==========");
@@ -5747,11 +5371,11 @@ namespace Agentic_Mod
                             Console.WriteLine($"Unit B Iteration {iterations + 1}, z=({z.X:F6}, {z.Y:F6}, {z.Z:F6}), r={r:F6}");
                             foreach (var source in velocitySources)
                             {
-                                float distanceSq = Vector3.DistanceSquared(z, source.position);
+                                float distanceSq = System.Numerics.Vector3.DistanceSquared(z, source.position);
                                 float distance = MathF.Sqrt(distanceSq);
-                                if (distance < 3.0f)
+                                if (distance < 3.0f) // Different interaction distance for B
                                 {
-                                    float contribution = source.velocity * MathF.Exp(-distance * 1.8f) * MathF.Exp(-iterations * 0.08f);
+                                    float contribution = source.velocity * MathF.Exp(-distance * 1.8f) * MathF.Exp(-iterations * 0.08f); // Different diffusion params for B
                                     diffusedVelocity += contribution;
                                     if (sampleContributions[sampleIndex].ContainsKey(source.source)) sampleContributions[sampleIndex][source.source] += contribution; else sampleContributions[sampleIndex][source.source] = contribution;
                                     Console.WriteLine($"  Unit B Contribution from {source.source}: {contribution:F6} (distance: {distance:F4})");
@@ -5762,7 +5386,7 @@ namespace Agentic_Mod
                             float newR = MathF.Pow(r, Power);
                             float newTheta = Power * theta;
                             float newPhi = Power * phi;
-                            z = new Vector3(newR * MathF.Sin(newTheta) * MathF.Cos(newPhi), newR * MathF.Sin(newTheta) * MathF.Sin(newPhi), newR * MathF.Cos(newTheta)) + c;
+                            z = new System.Numerics.Vector3(newR * MathF.Sin(newTheta) * MathF.Cos(newPhi), newR * MathF.Sin(newTheta) * MathF.Sin(newPhi), newR * MathF.Cos(newTheta)) + c;
                         }
                         sampleValues[sampleIndex] = z;
                         sampleIterations[sampleIndex] = iterations;
@@ -5814,7 +5438,7 @@ namespace Agentic_Mod
                 // Step 7 (Unit B): Tensor Network Training
                 //==========================================================================
 
-                string Stage7_TensorNetworkTraining_B(string optimizationResult, int custId, Session mlSession, ConcurrentDictionary<string, object> resultsStore)
+                string Stage7_TensorNetworkTraining_B(string optimizationResult, int custId, ConcurrentDictionary<string, object> resultsStore)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 7 (Unit B) - Training tensor network for customer {custId} using Actual TF.NET Model B.");
                     tf.compat.v1.disable_eager_execution();
@@ -5825,25 +5449,25 @@ namespace Agentic_Mod
                     float[] eigenvalues = unitResultsStore.TryGetValue("B_MarketCurvatureEigenvalues", out var eigVals) && eigVals is float[] eigArray ? eigArray : new float[] { 1.0f, 1.0f, 1.0f };
                     resultsStore["B_MarketCurvatureEigenvalues"] = eigenvalues;
 
-                    int numEpochs = 80;
+                    int numEpochs = 80; // Different epochs for B
                     List<float> trainingLosses = new List<float>();
                     List<float> trainingErrors = new List<float>();
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Creating sample training data.");
-                    float[][] numericalSamples = new float[][] {
-                        new float[] { 0.3f, 0.7f, 0.1f, 0.85f }, new float[] { 0.5f, 0.2f, 0.9f, 0.35f }, new float[] { 0.8f, 0.6f, 0.4f, 0.55f }, new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
-                        new float[] { 0.7f, 0.3f, 0.2f, 0.95f }, new float[] { 0.4f, 0.5f, 0.7f, 0.65f }, new float[] { 0.2f, 0.9f, 0.3f, 0.15f }, new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
-                        new float[] { 0.35f, 0.65f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.85f, 0.30f }, new float[] { 0.75f, 0.55f, 0.45f, 0.60f }, new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
-                        new float[] { 0.65f, 0.35f, 0.25f, 0.90f }, new float[] { 0.45f, 0.45f, 0.65f, 0.70f }, new float[] { 0.25f, 0.85f, 0.35f, 0.10f }, new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
+                    float[][] numericalSamples = new float[][] { // Slightly different data for B
+                        new float[] { 0.35f, 0.75f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.95f, 0.30f }, new float[] { 0.85f, 0.65f, 0.45f, 0.50f }, new float[] { 0.15f, 0.85f, 0.65f, 0.20f },
+                        new float[] { 0.75f, 0.35f, 0.25f, 0.90f }, new float[] { 0.45f, 0.55f, 0.75f, 0.60f }, new float[] { 0.25f, 0.95f, 0.35f, 0.10f }, new float[] { 0.65f, 0.15f, 0.85f, 0.70f },
+                        new float[] { 0.30f, 0.60f, 0.10f, 0.85f }, new float[] { 0.50f, 0.20f, 0.80f, 0.35f }, new float[] { 0.70f, 0.50f, 0.40f, 0.55f }, new float[] { 0.10f, 0.70f, 0.50f, 0.25f },
+                        new float[] { 0.60f, 0.30f, 0.20f, 0.95f }, new float[] { 0.40f, 0.40f, 0.60f, 0.65f }, new float[] { 0.20f, 0.80f, 0.30f, 0.15f }, new float[] { 0.55f, 0.10f, 0.70f, 0.75f }
                     };
                     float[] numericalLabels = new float[numericalSamples.Length];
                     for (int i = 0; i < numericalSamples.Length; i++)
                     {
                         if (numericalSamples[i] == null || numericalSamples[i].Length < 4) { numericalLabels[i] = 0.0f; continue; }
                         float x = numericalSamples[i][0], y = numericalSamples[i][1], z = numericalSamples[i][2], p = numericalSamples[i][3];
-                        numericalLabels[i] = x * 2.0f * (float)Math.Sin(p) + y * 2.0f * (float)Math.Cos(p) + z * 2.0f * (float)Math.Sin(p / 2f) + x * y * z * 0.2f;
+                        numericalLabels[i] = x * 2.0f * (float)Math.Sin(p) + y * 2.0f * (float)Math.Cos(p) + z * 2.0f * (float)Math.Sin(p / 2f) + x * y * z * 0.2f; // Different target function for B
                     }
-                    string[] wordSamples = new string[] {
+                    string[] wordSamples = new string[] { // Different word samples for B
                         "strategic alignment high", "operational synergy excellent", "technology adoption rapid", "regulatory compliance strong", "market share increasing", "supply chain optimized",
                         "financial performance solid", "risk management effective", "customer engagement active", "employee productivity high", "innovation pipeline robust", "distribution network wide",
                         "environmental impact low", "social responsibility high", "governance structure sound", "competitive landscape favorable"
@@ -5860,7 +5484,7 @@ namespace Agentic_Mod
                     int wordFeatureCount = wordData.GetLength(1);
                     int totalInputFeatureCount = numericalFeatureCount + wordFeatureCount;
 
-                    int batchSize = 6;
+                    int batchSize = 6; // Different batch size for B
                     int dataSize = numericalData.GetLength(0);
                     int actualBatchSize = Math.Min(batchSize, dataSize);
                     if (actualBatchSize <= 0 && dataSize > 0) actualBatchSize = dataSize;
@@ -5876,175 +5500,140 @@ namespace Agentic_Mod
                     int numBatches = (actualBatchSize > 0) ? (int)Math.Ceiling((double)dataSize / actualBatchSize) : 0;
                     int[] indices = Enumerable.Range(0, dataSize).ToArray();
 
-                    string initialExpression = "2*2";
+                    string initialExpression = "2*2"; // Different expression for B
                     string regexPattern = ConvertExpressionToRegex(initialExpression);
                     string nDimensionalExpression = ConvertRegexToNDimensionalExpression(regexPattern);
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                        try
+                        modelBGraph = tf.Graph(); // Initialize graph for Model B
+                        using (modelBGraph.as_default()) // Set as default graph for operation creation
                         {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Initializing Model B Architecture.");
-                            float[] unitCWeightsArray = DeserializeFloatArray(modelWeightsBytes);
-                            float[] unitCBiasArray = DeserializeFloatArray(modelBiasBytes);
-                            int unitCHiddenSize = -1;
-                            if (unitCBiasArray.Length >= 1) unitCHiddenSize = unitCBiasArray.Length - 1;
-                            if (unitCHiddenSize <= 0 || unitCWeightsArray.Length != (totalInputFeatureCount * unitCHiddenSize) + (unitCHiddenSize * 1))
+                            modelBSession = tf.Session(modelBGraph); // Create session with Model B's graph
+                            try
                             {
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Could not reliably infer Unit C hidden size. Using fallback.");
-                                unitCHiddenSize = 64;
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Initializing Model B Architecture in its own graph.");
+                                float[] unitCWeightsArray = DeserializeFloatArray(modelWeightsBytes);
+                                float[] unitCBiasArray = DeserializeFloatArray(modelBiasBytes);
+                                int unitCHiddenSize = -1;
+                                if (unitCBiasArray.Length >= 1) unitCHiddenSize = unitCBiasArray.Length - 1;
+                                if (unitCHiddenSize <= 0 || unitCWeightsArray.Length != (totalInputFeatureCount * unitCHiddenSize) + (unitCHiddenSize * 1))
+                                {
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Could not reliably infer Unit C hidden size. Using fallback.");
+                                    unitCHiddenSize = 64;
+                                }
+                                int hiddenLayerSizeB = 70; // Different hidden layer size for B
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B architecture parameters: Input Feats: {totalInputFeatureCount}, Hidden Size: {hiddenLayerSizeB}");
+
+                                float[,] modelBWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, hiddenLayerSizeB);
+                                float[,] modelBWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, hiddenLayerSizeB, 1);
+
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Model B.");
+                                Tensor numericalInput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, numericalFeatureCount }, name: "numerical_input_B");
+                                Tensor wordInput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, wordFeatureCount }, name: "word_input_B");
+                                Tensor targetOutput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, 1 }, name: "target_output_B");
+                                Tensor combinedInput_B_Ops = tf.concat(new[] { numericalInput_B_Ops, wordInput_B_Ops }, axis: 1, name: "combined_input_B");
+                                ResourceVariable weights1_B_Ops = tf.Variable(tf.constant(modelBWeights1Data, dtype: tf.float32), name: "weights1_B");
+                                ResourceVariable bias1_B_Ops = tf.Variable(tf.zeros(hiddenLayerSizeB, dtype: tf.float32), name: "bias1_B");
+                                ResourceVariable weights2_B_Ops = tf.Variable(tf.constant(modelBWeights2Data, dtype: tf.float32), name: "weights2_B");
+                                ResourceVariable bias2_B_Ops = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_B");
+                                Tensor hidden_B_Ops = tf.nn.sigmoid(tf.add(tf.matmul(combinedInput_B_Ops, weights1_B_Ops), bias1_B_Ops), name: "hidden_B"); // Sigmoid for B
+                                Tensor predictions_B_Ops = tf.add(tf.matmul(hidden_B_Ops, weights2_B_Ops), bias2_B_Ops, name: "predictions_B");
+                                Tensor loss_B_Ops = tf.reduce_mean(tf.square(tf.subtract(predictions_B_Ops, targetOutput_B_Ops)), name: "mse_loss_B");
+                                var regularizer_B = tf.reduce_sum(tf.square(weights1_B_Ops)) / 2.0f + tf.reduce_sum(tf.square(weights2_B_Ops)) / 2.0f; // L2 Regularization for B
+                                Tensor lossWithRegularization_B_Ops = loss_B_Ops + 0.0005f * regularizer_B; // Add regularization to loss for B
+                                var optimizer_B = tf.train.AdamOptimizer(0.001f);
+                                Operation trainOp_B_Ops = optimizer_B.minimize(lossWithRegularization_B_Ops);
+                                Tensor meanAbsError_B_Ops = tf.reduce_mean(tf.abs(tf.subtract(predictions_B_Ops, targetOutput_B_Ops)), name: "mae_B");
+                                Operation initOp_B_Ops = tf.global_variables_initializer();
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Unit B.");
+
+                                modelBSession.run(initOp_B_Ops); // Initialize variables within the correct session
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B - Actual TensorFlow.NET variables initialized in its own session.");
+
+                                var trainingDataFeed_B = new FeedItem[] {
+                                    new FeedItem(numericalInput_B_Ops, numericalData), new FeedItem(wordInput_B_Ops, wordData), new FeedItem(targetOutput_B_Ops, targetValues)
+                                };
+
+                                for (int epoch = 0; epoch < numEpochs; epoch++)
+                                {
+                                    ShuffleArray(indices); float epochLoss = 0.0f;
+                                    for (int batchLoop = 0; batchLoop < numBatches; batchLoop++) // Changed loop variable name
+                                    {
+                                        int startIdx = batchLoop * actualBatchSize; int endIdx = Math.Min(startIdx + actualBatchSize, dataSize); int batchCount = endIdx - startIdx; if (batchCount <= 0) continue;
+                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount); float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount); float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+                                        var batchFeed_B = new FeedItem[] {
+                                            new FeedItem(numericalInput_B_Ops, batchNumerical), new FeedItem(wordInput_B_Ops, batchWord), new FeedItem(targetOutput_B_Ops, batchTarget)
+                                        };
+                                        var results_B = modelBSession.run(new ITensorOrOperation[] { lossWithRegularization_B_Ops, trainOp_B_Ops }, batchFeed_B); // Use modelBSession
+                                        float batchLossValue = ((Tensor)results_B[0]).numpy().ToArray<float>()[0];
+                                        epochLoss += batchLossValue;
+                                        if (batchLoop % 5 == 0 || batchLoop == numBatches - 1) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batchLoop + 1}/{numBatches}, Batch Loss (Unit B): {batchLossValue:F6}");
+                                    }
+                                    if (numBatches > 0) epochLoss /= numBatches; else epochLoss = float.NaN;
+                                    trainingLosses.Add(epochLoss);
+                                    if (epoch % 10 == 0 || epoch == numEpochs - 1)
+                                    {
+                                        var evalResults_B = modelBSession.run(new ITensorOrOperation[] { meanAbsError_B_Ops }, trainingDataFeed_B); // Use modelBSession
+                                        float currentErrorValue = ((Tensor)evalResults_B[0]).numpy().ToArray<float>()[0];
+                                        trainingErrors.Add(currentErrorValue);
+                                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Loss (Unit B): {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error (Unit B): {currentErrorValue:F6}");
+                                    }
+                                }
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B training completed");
+
+                                var finalResults_B = modelBSession.run(new ITensorOrOperation[] { meanAbsError_B_Ops, predictions_B_Ops }, trainingDataFeed_B); // Use modelBSession
+                                float finalError_B = ((Tensor)finalResults_B[0]).numpy().ToArray<float>()[0];
+                                Tensor finalPredictionsTensor_B = (Tensor)finalResults_B[1];
+                                float[] finalPredictionsFlat_B = finalPredictionsTensor_B.ToArray<float>();
+                                int[] finalPredictionsDims_B = finalPredictionsTensor_B.shape.dims.Select(d => (int)d).ToArray();
+
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions Shape: {string.Join(",", finalPredictionsDims_B)}");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat_B.Take(Math.Min(finalPredictionsFlat_B.Length, 10)).Select(p => p.ToString("F4")))}...]");
+
+                                var finalParams_B = modelBSession.run(new ITensorOrOperation[] { (ITensorOrOperation)weights1_B_Ops, (ITensorOrOperation)bias1_B_Ops, (ITensorOrOperation)weights2_B_Ops, (ITensorOrOperation)bias2_B_Ops }); // Use modelBSession
+                                var finalWeights1_B = ((Tensor)finalParams_B[0]).ToArray<float>(); var finalBias1_B = ((Tensor)finalParams_B[1]).ToArray<float>();
+                                var finalWeights2_B = ((Tensor)finalParams_B[2]).ToArray<float>(); var finalBias2_B = ((Tensor)finalParams_B[3]).ToArray<float>();
+                                byte[] trainedWeights1Bytes_B = SerializeFloatArray(finalWeights1_B); byte[] trainedBias1Bytes_B = SerializeFloatArray(finalBias1_B);
+                                byte[] trainedWeights2Bytes_B = SerializeFloatArray(finalWeights2_B); byte[] trainedBias2Bytes_B = SerializeFloatArray(finalBias2_B);
+                                var byteArraysToCombine_B = new List<byte[]>();
+                                if (trainedWeights1Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights1Bytes_B); if (trainedBias1Bytes_B != null) byteArraysToCombine_B.Add(trainedBias1Bytes_B);
+                                if (trainedWeights2Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights2Bytes_B); if (trainedBias2Bytes_B != null) byteArraysToCombine_B.Add(trainedBias2Bytes_B);
+                                byte[] combinedModelBData = byteArraysToCombine_B.SelectMany(arr => arr).ToArray();
+
+                                resultsStore["ModelBPredictionsFlat"] = finalPredictionsFlat_B; resultsStore["ModelBPredictionsShape"] = finalPredictionsDims_B;
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Mean Absolute Error: {finalError_B:F6}");
+                                float modelBOutcomeScore = Math.Max(0.0f, 1.0f - finalError_B / 0.5f);
+                                resultsStore["ModelBProcessingOutcome"] = modelBOutcomeScore; resultsStore["ModelBTrainingError"] = finalError_B;
+                                resultsStore["ModelBTrainingLosses"] = trainingLosses.ToArray(); resultsStore["ModelBTrainingErrors"] = trainingErrors.ToArray();
+                                resultsStore["ModelBCombinedParameters"] = combinedModelBData;
+
+                                var modelMetadata_B = new Dictionary<string, object> {
+                                    { "EmbeddedExpression", initialExpression }, { "NDimensionalExpression", nDimensionalExpression }, { "TrainingEpochs", numEpochs }, { "FinalMeanAbsoluteError", finalError_B },
+                                    { "TotalInputFeatureCount", totalInputFeatureCount }, { "HiddenLayerSize", hiddenLayerSizeB }, { "TrainingSampleCount", dataSize }, { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
+                                    { "CurvatureEigenvalues", eigenvalues }, { "HasOutermostVertexFocus", true }, { "UsesNDimensionalIterations", true }, { "UsesSigmoidActivation", true }, { "UsesL2Regularization", true }
+                                };
+                                string metadataJson_B = SerializeMetadata(modelMetadata_B); byte[] metadataBytes_B = System.Text.Encoding.UTF8.GetBytes(metadataJson_B);
+                                resultsStore["ModelBMetadata"] = metadataBytes_B;
+                                RuntimeProcessingContext.StoreContextValue("model_b_params_combined", combinedModelBData); RuntimeProcessingContext.StoreContextValue("model_b_metadata", metadataBytes_B);
+                                RuntimeProcessingContext.StoreContextValue("model_b_expression", initialExpression); RuntimeProcessingContext.StoreContextValue("model_b_expression_nd", nDimensionalExpression);
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Model B trained and saved to RuntimeProcessingContext and Results Store.");
+                                string result = $"TensorNetworkTrained_B_Cust_{custId}_MAE{finalError_B:F4}_Expr({initialExpression.Replace('*', 'm')})";
+                                return result;
                             }
-                            int hiddenLayerSizeB = 70;
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B architecture parameters: Input Feats: {totalInputFeatureCount}, Hidden Size: {hiddenLayerSizeB}");
-
-                            float[,] modelBWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, hiddenLayerSizeB);
-                            float[,] modelBWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, hiddenLayerSizeB, 1);
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Unit B in the default graph.");
-
-                            // Operations will be added to the current default graph.
-                            // Ensure mlSession uses this same graph.
-                            // No explicit 'using' block for graph or session context here, to avoid CS1674.
-
-                            Tensor numericalInput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, numericalFeatureCount }, name: "numerical_input_B");
-                            Tensor wordInput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, wordFeatureCount }, name: "word_input_B");
-                            Tensor targetOutput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, 1 }, name: "target_output_B");
-                            Tensor combinedInput_B_Ops = tf.concat(new[] { numericalInput_B_Ops, wordInput_B_Ops }, axis: 1, name: "combined_input_B");
-                            ResourceVariable weights1_B_Ops = tf.Variable(tf.constant(modelBWeights1Data, dtype: tf.float32), name: "weights1_B");
-                            ResourceVariable bias1_B_Ops = tf.Variable(tf.zeros(hiddenLayerSizeB, dtype: tf.float32), name: "bias1_B");
-                            ResourceVariable weights2_B_Ops = tf.Variable(tf.constant(modelBWeights2Data, dtype: tf.float32), name: "weights2_B");
-                            ResourceVariable bias2_B_Ops = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_B");
-                            Tensor hidden_B_Ops = tf.nn.sigmoid(tf.add(tf.matmul(combinedInput_B_Ops, weights1_B_Ops), bias1_B_Ops), name: "hidden_B");
-                            Tensor predictions_B_Ops = tf.add(tf.matmul(hidden_B_Ops, weights2_B_Ops), bias2_B_Ops, name: "predictions_B");
-                            Tensor loss_B_Ops = tf.reduce_mean(tf.square(tf.subtract(predictions_B_Ops, targetOutput_B_Ops)), name: "mse_loss_B");
-                            var regularizer_B = tf.reduce_sum(tf.square(weights1_B_Ops)) / 2.0f + tf.reduce_sum(tf.square(weights2_B_Ops)) / 2.0f;
-                            Tensor lossWithRegularization_B_Ops = loss_B_Ops + 0.0005f * regularizer_B;
-                            var optimizer_B = tf.train.AdamOptimizer(0.001f);
-                            Operation trainOp_B_Ops = optimizer_B.minimize(lossWithRegularization_B_Ops);
-                            Tensor meanAbsError_B_Ops = tf.reduce_mean(tf.abs(tf.subtract(predictions_B_Ops, targetOutput_B_Ops)), name: "mae_B");
-                            Operation initOp_B_Ops = tf.global_variables_initializer();
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Unit B.");
-
-                            var trainingDataFeed_B = new FeedItem[] {
-                                new FeedItem(numericalInput_B_Ops, numericalData),
-                                new FeedItem(wordInput_B_Ops, wordData),
-                                new FeedItem(targetOutput_B_Ops, targetValues)
-                            };
-                            mlSession.run(initOp_B_Ops);
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B - Actual TensorFlow.NET variables initialized.");
-
-                            for (int epoch = 0; epoch < numEpochs; epoch++)
+                            catch (Exception ex)
                             {
-                                ShuffleArray(indices);
-                                float epochLoss = 0.0f;
-                                for (int batchLoop = 0; batchLoop < numBatches; batchLoop++)
-                                {
-                                    int startIdx = batchLoop * actualBatchSize;
-                                    int endIdx = Math.Min(startIdx + actualBatchSize, dataSize);
-                                    int batchCount = endIdx - startIdx;
-                                    if (batchCount <= 0) continue;
-                                    float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount);
-                                    float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount);
-                                    float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
-                                    var batchFeed_B = new FeedItem[] {
-                                        new FeedItem(numericalInput_B_Ops, batchNumerical),
-                                        new FeedItem(wordInput_B_Ops, batchWord),
-                                        new FeedItem(targetOutput_B_Ops, batchTarget)
-                                    };
-                                    var results_B = mlSession.run(new ITensorOrOperation[] { lossWithRegularization_B_Ops, trainOp_B_Ops }, batchFeed_B);
-                                    float batchLossValue = ((Tensor)results_B[0]).numpy().ToArray<float>()[0];
-                                    epochLoss += batchLossValue;
-                                    if (batchLoop % 5 == 0 || batchLoop == numBatches - 1) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batchLoop + 1}/{numBatches}, Batch Loss (Unit B): {batchLossValue:F6}");
-                                }
-                                if (numBatches > 0) epochLoss /= numBatches; else epochLoss = float.NaN;
-                                trainingLosses.Add(epochLoss);
-                                if (epoch % 10 == 0 || epoch == numEpochs - 1)
-                                {
-                                    var evalResults_B = mlSession.run(new ITensorOrOperation[] { meanAbsError_B_Ops }, trainingDataFeed_B);
-                                    float currentErrorValue = ((Tensor)evalResults_B[0]).numpy().ToArray<float>()[0];
-                                    trainingErrors.Add(currentErrorValue);
-                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Loss (Unit B): {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error (Unit B): {currentErrorValue:F6}");
-                                }
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during Step 7 (Unit B) - Tensor Network Training (Model B Graph Context): {ex.Message}");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Stack Trace (Unit B): {ex.StackTrace}");
+                                resultsStore["ModelBProcessingError"] = "Model B Training Error: " + ex.Message; resultsStore["ModelBProcessingOutcome"] = 0.0f; resultsStore["ModelBTrainingError"] = float.NaN;
+                                throw; // Re-throw to be caught by the outer try-catch of ParallelProcessingUnitB
                             }
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B training completed");
-
-                            var finalResults_B = mlSession.run(new ITensorOrOperation[] { meanAbsError_B_Ops, predictions_B_Ops }, trainingDataFeed_B);
-                            float finalError_B = ((Tensor)finalResults_B[0]).numpy().ToArray<float>()[0];
-                            Tensor finalPredictionsTensor_B = (Tensor)finalResults_B[1];
-                            float[] finalPredictionsFlat_B = finalPredictionsTensor_B.ToArray<float>();
-                            int[] finalPredictionsDims_B = finalPredictionsTensor_B.shape.dims.Select(d => (int)d).ToArray();
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions Shape: {string.Join(",", finalPredictionsDims_B)}");
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat_B.Take(Math.Min(finalPredictionsFlat_B.Length, 10)).Select(p => p.ToString("F4")))}...]");
-
-                            var finalParams_B = mlSession.run(new ITensorOrOperation[] {
-                                (ITensorOrOperation)weights1_B_Ops,
-                                (ITensorOrOperation)bias1_B_Ops,
-                                (ITensorOrOperation)weights2_B_Ops,
-                                (ITensorOrOperation)bias2_B_Ops
-                            });
-                            var finalWeights1_B = ((Tensor)finalParams_B[0]).ToArray<float>();
-                            var finalBias1_B = ((Tensor)finalParams_B[1]).ToArray<float>();
-                            var finalWeights2_B = ((Tensor)finalParams_B[2]).ToArray<float>();
-                            var finalBias2_B = ((Tensor)finalParams_B[3]).ToArray<float>();
-                            byte[] trainedWeights1Bytes_B = SerializeFloatArray(finalWeights1_B);
-                            byte[] trainedBias1Bytes_B = SerializeFloatArray(finalBias1_B);
-                            byte[] trainedWeights2Bytes_B = SerializeFloatArray(finalWeights2_B);
-                            byte[] trainedBias2Bytes_B = SerializeFloatArray(finalBias2_B);
-                            var byteArraysToCombine_B = new List<byte[]>();
-                            if (trainedWeights1Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights1Bytes_B);
-                            if (trainedBias1Bytes_B != null) byteArraysToCombine_B.Add(trainedBias1Bytes_B);
-                            if (trainedWeights2Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights2Bytes_B);
-                            if (trainedBias2Bytes_B != null) byteArraysToCombine_B.Add(trainedBias2Bytes_B);
-                            byte[] combinedModelBData = byteArraysToCombine_B.SelectMany(arr => arr).ToArray();
-
-                            resultsStore["ModelBPredictionsFlat"] = finalPredictionsFlat_B;
-                            resultsStore["ModelBPredictionsShape"] = finalPredictionsDims_B;
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Mean Absolute Error: {finalError_B:F6}");
-                            float modelBOutcomeScore = Math.Max(0.0f, 1.0f - finalError_B / 0.5f);
-
-                            resultsStore["ModelBProcessingOutcome"] = modelBOutcomeScore;
-                            resultsStore["ModelBTrainingError"] = finalError_B;
-                            resultsStore["ModelBTrainingLosses"] = trainingLosses.ToArray();
-                            resultsStore["ModelBTrainingErrors"] = trainingErrors.ToArray();
-                            resultsStore["ModelBCombinedParameters"] = combinedModelBData;
-
-                            var modelMetadata_B = new Dictionary<string, object> {
-                                { "EmbeddedExpression", initialExpression }, { "NDimensionalExpression", nDimensionalExpression }, { "TrainingEpochs", numEpochs }, { "FinalMeanAbsoluteError", finalError_B },
-                                { "TotalInputFeatureCount", totalInputFeatureCount }, { "HiddenLayerSize", hiddenLayerSizeB }, { "TrainingSampleCount", dataSize }, { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
-                                { "CurvatureEigenvalues", eigenvalues }, { "HasOutermostVertexFocus", true }, { "UsesNDimensionalIterations", true }, { "UsesSigmoidActivation", true }, { "UsesL2Regularization", true }
-                            };
-                            string metadataJson_B = SerializeMetadata(modelMetadata_B);
-                            byte[] metadataBytes_B = System.Text.Encoding.UTF8.GetBytes(metadataJson_B);
-                            resultsStore["ModelBMetadata"] = metadataBytes_B;
-
-                            RuntimeProcessingContext.StoreContextValue("model_b_params_combined", combinedModelBData);
-                            RuntimeProcessingContext.StoreContextValue("model_b_metadata", metadataBytes_B);
-                            RuntimeProcessingContext.StoreContextValue("model_b_expression", initialExpression);
-                            RuntimeProcessingContext.StoreContextValue("model_b_expression_nd", nDimensionalExpression);
-
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Model B trained and saved to RuntimeProcessingContext and Results Store.");
-                            string result = $"TensorNetworkTrained_B_Cust_{custId}_MAE{finalError_B:F4}_Expr({initialExpression.Replace('*', 'm')})";
-                            return result;
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during Step 7 (Unit B) - Tensor Network Training: {ex.Message}");
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Stack Trace (Unit B): {ex.StackTrace}");
-                            resultsStore["ModelBProcessingError"] = "Model B Training Error: " + ex.Message;
-                            resultsStore["ModelBProcessingOutcome"] = 0.0f;
-                            resultsStore["ModelBTrainingError"] = float.NaN;
-                            // This re-throw is caught by the outer try-catch of Stage7_TensorNetworkTraining_B
-                            throw;
-                        }
+                        } // End of modelBGraph.as_default()
                     }
                     else
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Missing initial model parameters from Unit C for Model B training. Skipping training.");
-                        resultsStore["ModelBProcessingWarning"] = "Missing initial parameters from Unit C for training.";
-                        resultsStore["ModelBProcessingOutcome"] = 0.1f;
-                        resultsStore["ModelBTrainingError"] = float.NaN;
+                        resultsStore["ModelBProcessingWarning"] = "Missing initial parameters from Unit C for training."; resultsStore["ModelBProcessingOutcome"] = 0.1f; resultsStore["ModelBTrainingError"] = float.NaN;
                         return $"TensorNetworkTrainingSkipped_B_Cust_{custId}_MissingData";
                     }
                 }
@@ -6062,16 +5651,16 @@ namespace Agentic_Mod
                     byte[]? modelBCombinedParams = unitResultsStore.TryGetValue("ModelBCombinedParameters", out var maParams) ? maParams as byte[] : null;
 
                     string projectionOutcome = "StableB";
-                    float projectedScore = (combinedFeatureEvaluationScore * 0.6f + modelBTrainingOutcomeScore * 0.4f);
+                    float projectedScore = (combinedFeatureEvaluationScore * 0.6f + modelBTrainingOutcomeScore * 0.4f); // Different weighting for B
 
                     if (!float.IsNaN(modelBTrainingError))
                     {
-                        if (modelBTrainingError < 0.04f) { projectionOutcome = "StrongGrowthB"; projectedScore = Math.Min(projectedScore + 0.12f, 1.0f); }
-                        else if (modelBTrainingError > 0.25f) { projectionOutcome = "PotentialChallengesB"; projectedScore = Math.Max(projectedScore - 0.06f, 0.0f); }
+                        if (modelBTrainingError < 0.04f) { projectionOutcome = "StrongGrowthB"; projectedScore = Math.Min(projectedScore + 0.12f, 1.0f); } // Different bonus for B
+                        else if (modelBTrainingError > 0.25f) { projectionOutcome = "PotentialChallengesB"; projectedScore = Math.Max(projectedScore - 0.06f, 0.0f); } // Different penalty for B
                     }
                     else { projectionOutcome = "TrainingDataUnavailableB"; }
 
-                    if (modelBCombinedParams != null && modelBCombinedParams.Length > 1200)
+                    if (modelBCombinedParams != null && modelBCombinedParams.Length > 1200) // Different complexity threshold for B
                     {
                         projectionOutcome += "_ComplexModelB";
                         if (!float.IsNaN(modelBTrainingError))
@@ -6090,19 +5679,21 @@ namespace Agentic_Mod
                 //==========================================================================
                 // Workflow Execution
                 //==========================================================================
-                var workflowResult = ExecuteProductionWorkflow_B(outcomeRecord, customerIdentifier, mlSession);
+                var workflowResult = ExecuteProductionWorkflow_B(outcomeRecord, customerIdentifier, mlSession_param_unused);  // mlSession is passed but unused internally by Stage7
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Workflow (Unit B) completed with result: {workflowResult}");
-                await Task.Delay(200);
+                await Task.Delay(200); // Simulate different processing time for B
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error in Parallel Processing Unit B: {ex.Message}");
                 unitResultsStore["ModelBProcessingError"] = "Model B Error: " + ex.Message;
-                unitResultsStore["ModelBProcessingOutcome"] = 0.0f;
-                throw;
+                unitResultsStore["ModelBProcessingOutcome"] = 0.0f; // Indicate failure with a low score for B
+                throw; // Re-throw the exception so the main orchestrator method can catch it
             }
             finally
             {
+                MlProcessOrchestrator.DisposeGraphAndSession(ref modelBGraph, ref modelBSession);
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Parallel Processing Unit B TF Graph and Session disposed.");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Parallel Processing Unit B finished.");
             }
         }
@@ -6547,7 +6138,7 @@ namespace Agentic_Mod
 
                     if (numWordFeatures > 0 && wordInput.GetLength(1) == numWordFeatures)
                     {
-                        if (wordInput.GetLength(1) >= numWordFeatures)
+                        if (wordInput.GetLength(1) >= numWordFeatures) // Check if there are enough columns in wordInput to copy from
                         {
                             System.Buffer.BlockCopy(GetRow(wordInput, i), 0, combinedSampleInput, numNumericalFeatures * sizeof(float), numWordFeatures * sizeof(float));
                         }
@@ -6561,12 +6152,14 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper_D: Word input column mismatch for sample {i}. Expected {numWordFeatures}, got {wordInput.GetLength(1)}.");
                     }
 
+
                     float[] hiddenActivationInput = new float[hiddenLayerSize];
                     for (int j = 0; j < hiddenLayerSize; j++)
                     {
                         float sum = 0;
                         for (int k = 0; k < totalInputFeatures; k++)
                         {
+                            // Transposed access for weights1: weights1[k, j] in a flat array is weights1[k * hiddenLayerSize + j]
                             if (k * hiddenLayerSize + j < weights1.Length)
                             {
                                 sum += combinedSampleInput[k] * weights1[k * hiddenLayerSize + j];
@@ -6574,11 +6167,11 @@ namespace Agentic_Mod
                             else
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper_D: Weights1 index out of bounds ({k * hiddenLayerSize + j}) during {modelName} simulation. Stopping this sample's calculation.");
-                                sum = float.NaN;
+                                sum = float.NaN; // Mark as error
                                 break;
                             }
                         }
-                        if (float.IsNaN(sum))
+                        if (float.IsNaN(sum)) // If error occurred in inner loop
                         {
                             hiddenActivationInput[j] = float.NaN;
                         }
@@ -6592,34 +6185,36 @@ namespace Agentic_Mod
                             else
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper_D: Bias1 index out of bounds ({j}) during {modelName} simulation. Stopping this sample's calculation.");
-                                hiddenActivationInput[j] = float.NaN;
+                                hiddenActivationInput[j] = float.NaN; // Mark as error
                             }
                         }
                     }
 
                     float[] hiddenOutput = new float[hiddenLayerSize];
-                    if (modelName.Contains("Model A"))
+                    if (modelName.Contains("Model A")) // Assuming Model A used ReLU
                     {
-                        for (int j = 0; j < hiddenLayerSize; j++) hiddenOutput[j] = float.IsNaN(hiddenActivationInput[j]) ? float.NaN : Math.Max(0, hiddenActivationInput[j]);
+                        for (int j = 0; j < hiddenLayerSize; j++) hiddenOutput[j] = float.IsNaN(hiddenActivationInput[j]) ? float.NaN : Math.Max(0, hiddenActivationInput[j]); // ReLU
                     }
-                    else if (modelName.Contains("Model B"))
+                    else if (modelName.Contains("Model B")) // Assuming Model B used Sigmoid
                     {
-                        for (int j = 0; j < hiddenLayerSize; j++) hiddenOutput[j] = float.IsNaN(hiddenActivationInput[j]) ? float.NaN : 1.0f / (1.0f + MathF.Exp(-hiddenActivationInput[j]));
+                        for (int j = 0; j < hiddenLayerSize; j++) hiddenOutput[j] = float.IsNaN(hiddenActivationInput[j]) ? float.NaN : 1.0f / (1.0f + MathF.Exp(-hiddenActivationInput[j])); // Sigmoid
                     }
-                    else
+                    else // Default or if model name doesn't specify
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper_D: Warning: Unknown model name '{modelName}'. Using default ReLU activation for simulation.");
-                        for (int j = 0; j < hiddenLayerSize; j++) hiddenOutput[j] = float.IsNaN(hiddenActivationInput[j]) ? float.NaN : Math.Max(0, hiddenActivationInput[j]);
+                        for (int j = 0; j < hiddenLayerSize; j++) hiddenOutput[j] = float.IsNaN(hiddenActivationInput[j]) ? float.NaN : Math.Max(0, hiddenActivationInput[j]); // Default to ReLU
                     }
+
 
                     float outputValue = 0;
                     bool outputCalculationError = false;
                     for (int j = 0; j < hiddenLayerSize; j++)
                     {
                         if (float.IsNaN(hiddenOutput[j])) { outputValue = float.NaN; outputCalculationError = true; break; }
+                        // Transposed access for weights2: weights2[j, 0] in a flat array is weights2[j * 1 + 0] -> weights2[j]
                         if (j < weights2.Length) // weights2 has shape [H, 1], so its length is H
                         {
-                            outputValue += hiddenOutput[j] * weights2[j]; // Access weights2[j*1 + 0] -> weights2[j]
+                            outputValue += hiddenOutput[j] * weights2[j];
                         }
                         else
                         {
@@ -6629,15 +6224,21 @@ namespace Agentic_Mod
                     }
                     if (!outputCalculationError)
                     {
-                        if (0 < bias2.Length) outputValue += bias2[0];
+                        if (0 < bias2.Length) outputValue += bias2[0]; // Bias2 has shape [1]
                         else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper_D: Bias2 index out of bounds (0) during {modelName} simulation. Error in final output calculation."); outputValue = float.NaN; }
                     }
+
                     predictions[i, 0] = outputValue;
                 }
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper_D: Simulated {modelName} inference complete for {numSamples} samples. Returning predictions.");
                 return predictions;
             }
 
+
+            /// <summary>
+            /// Helper to extract a single row from a 2D array.
+            /// </summary>
             float[] GetRow(float[,] data, int row)
             {
                 if (data == null || row < 0 || row >= data.GetLength(0))
@@ -6651,13 +6252,15 @@ namespace Agentic_Mod
                 return rowArray;
             }
 
+
             #endregion
 
             try // Outer try for the main logic of Unit D
             {
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Initializing...");
-                await Task.Delay(50);
+                await Task.Delay(50); // Simulate initialization or brief pause
 
+                // Log availability of results from previous units
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Verifying input data availability");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Unit A Results Dictionary entries: {unitAResults?.Count ?? 0}");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Unit B Results Dictionary entries: {unitBResults?.Count ?? 0}");
@@ -6665,8 +6268,10 @@ namespace Agentic_Mod
                 if (unitAResults != null && unitAResults.Count > 0) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Unit A Results Dictionary keys: {string.Join(", ", unitAResults.Keys)}");
                 if (unitBResults != null && unitBResults.Count > 0) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Unit B Results Dictionary keys: {string.Join(", ", unitBResults.Keys)}");
 
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Retrieving model outputs and parameters from parallel units...");
 
+                // Attempt to retrieve Model A parameters
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Attempting to retrieve Model A parameters from RuntimeContext.");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: RuntimeContext available keys: {string.Join(", ", RuntimeProcessingContext.GetAllRuntimeContextKeys())}"); // Corrected call
 
@@ -6678,7 +6283,8 @@ namespace Agentic_Mod
                 }
                 else
                 {
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model A combined parameters not found or are empty in RuntimeContext.");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model A combined parameters not found or are empty in RuntimeContext. Attempting fallback to Unit A results dictionary.");
+                    // Fallback to unitAResults if not found in RuntimeContext
                     modelACombinedParams = unitAResults.TryGetValue("ModelACombinedParameters", out var maParams) ? maParams as byte[] : null;
                     if (modelACombinedParams != null && modelACombinedParams.Length > 0)
                     {
@@ -6686,6 +6292,8 @@ namespace Agentic_Mod
                     }
                 }
 
+
+                // Attempt to retrieve Model B parameters
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Attempting to retrieve Model B parameters from RuntimeContext.");
                 modelBCombinedParams = RuntimeProcessingContext.RetrieveContextValue("model_b_params_combined") as byte[];
                 if (modelBCombinedParams != null && modelBCombinedParams.Length > 0)
@@ -6694,7 +6302,7 @@ namespace Agentic_Mod
                 }
                 else
                 {
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model B combined parameters not found or are empty in RuntimeContext.");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model B combined parameters not found or are empty in RuntimeContext. Attempting fallback to Unit B results dictionary.");
                     // Fallback for Model B params if needed (from unitBResults, assuming a key like "ModelBCombinedParameters")
                     modelBCombinedParams = unitBResults.TryGetValue("ModelBCombinedParameters", out var mbParams) ? mbParams as byte[] : null;
                     if (modelBCombinedParams != null && modelBCombinedParams.Length > 0)
@@ -6703,12 +6311,14 @@ namespace Agentic_Mod
                     }
                 }
 
+
+                // Retrieve Model A predictions from unitAResults
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Attempting to retrieve Model A predictions from Unit A results dictionary.");
                 modelAPredictions = unitAResults.TryGetValue("ModelAPredictionsFlat", out var predsA) ? predsA as float[] : null;
                 if (modelAPredictions != null && modelAPredictions.Length > 0)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Successfully retrieved Model A predictions ({modelAPredictions.Length} values) from Unit A results.");
-                    var predictionLogLimit = Math.Min(modelAPredictions.Length, 10);
+                    var predictionLogLimit = Math.Min(modelAPredictions.Length, 10); // Log up to 10 predictions
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model A Predictions (first {predictionLogLimit}): [{string.Join(", ", modelAPredictions.Take(predictionLogLimit).Select(p => p.ToString("F4")))}...]");
                 }
                 else
@@ -6716,12 +6326,14 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model A predictions not found or are empty in Unit A results.");
                 }
 
+
+                // Retrieve Model B predictions from unitBResults
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Attempting to retrieve Model B predictions from Unit B results dictionary.");
                 modelBPredictions = unitBResults.TryGetValue("ModelBPredictionsFlat", out var predsB) ? predsB as float[] : null;
                 if (modelBPredictions != null && modelBPredictions.Length > 0)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Successfully retrieved Model B predictions ({modelBPredictions.Length} values) from Unit B results.");
-                    var predictionLogLimit = Math.Min(modelBPredictions.Length, 10);
+                    var predictionLogLimit = Math.Min(modelBPredictions.Length, 10); // Log up to 10 predictions
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model B Predictions (first {predictionLogLimit}): [{string.Join(", ", modelBPredictions.Take(predictionLogLimit).Select(p => p.ToString("F4")))}...]");
                 }
                 else
@@ -6729,23 +6341,37 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Model B predictions not found or are empty in Unit B results.");
                 }
 
+                // Retrieve training errors
                 float modelATrainingError = unitAResults.TryGetValue("ModelATrainingError", out var maeA) && maeA is float floatMAEA ? floatMAEA : float.NaN;
                 float modelBTrainingError = unitBResults.TryGetValue("ModelBTrainingError", out var maeB) && maeB is float floatMAEB ? floatMAEB : float.NaN;
 
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Retrieved Model A Training Error: {(float.IsNaN(modelATrainingError) ? "N/A" : modelATrainingError.ToString("F6"))}");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Retrieved Model B Training Error: {(float.IsNaN(modelBTrainingError) ? "N/A" : modelBTrainingError.ToString("F6"))}");
 
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Initiating AutoGen Agent Collaboration for Comprehensive Analysis.");
 
-                var agentA = new ConversableAgent(name: "ModelA_Analysis_Agent", systemMessage: "You are an AI agent specializing in Model A's performance and predictions. Analyze training metrics, interpret statistical comparisons with Model B, comment on simulation results, and provide nuanced insights. Your tone should be analytical and objective.", defaultAutoReply: "As Model A's analysis agent, I've reviewed the available metrics. The data provided is limited, making comprehensive analysis challenging. I'll need more specific information about Model A's performance to provide detailed insights.", humanInputMode: HumanInputMode.NEVER);
-                var agentB = new ConversableAgent(name: "ModelB_Analysis_Agent", systemMessage: "You are an AI agent specializing in Model B's performance and predictions. Analyze training metrics, interpret statistical comparisons with Model A, comment on simulation results, and provide nuanced insights. Your tone should be analytical and objective, potentially highlighting differences or alternative interpretations.", defaultAutoReply: "As Model B's analysis agent, I note that Model B shows a training error (MAE) of 0.172929, which indicates reasonable but not optimal performance. This level of error suggests Model B has captured meaningful patterns in the data while maintaining some generalization capability.", humanInputMode: HumanInputMode.NEVER);
+                var agentA = new ConversableAgent(
+                    name: "ModelA_Analysis_Agent",
+                    systemMessage: "You are an AI agent specializing in Model A's performance and predictions. Analyze training metrics, interpret statistical comparisons with Model B, comment on simulation results, and provide nuanced insights. Your tone should be analytical and objective.",
+                    defaultAutoReply: "As Model A's analysis agent, I've reviewed the available metrics. The data provided is limited, making comprehensive analysis challenging. I'll need more specific information about Model A's performance to provide detailed insights.",
+                    humanInputMode: HumanInputMode.NEVER);
 
+                var agentB = new ConversableAgent(
+                    name: "ModelB_Analysis_Agent",
+                    systemMessage: "You are an AI agent specializing in Model B's performance and predictions. Analyze training metrics, interpret statistical comparisons with Model A, comment on simulation results, and provide nuanced insights. Your tone should be analytical and objective, potentially highlighting differences or alternative interpretations.",
+                    defaultAutoReply: "As Model B's analysis agent, I note that Model B shows a training error (MAE) of 0.172929, which indicates reasonable but not optimal performance. This level of error suggests Model B has captured meaningful patterns in the data while maintaining some generalization capability.",
+                     humanInputMode: HumanInputMode.NEVER);
+
+                // Register middleware for logging (optional, but good for debugging)
                 agentA.RegisterMiddleware(async (history, options, sender, ct) => { var lastMessage = history?.LastOrDefault(); var lastTextMessage = lastMessage as AutoGen.Core.TextMessage; Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] AgentA Middleware: Received message from {sender?.Name ?? "Unknown"} with history count {history?.Count() ?? 0}. Content: {lastTextMessage?.Content ?? "N/A"}."); return null; });
                 agentB.RegisterMiddleware(async (history, options, sender, ct) => { var lastMessage = history?.LastOrDefault(); var lastTextMessage = lastMessage as AutoGen.Core.TextMessage; Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] AgentB Middleware: Received message from {sender?.Name ?? "Unknown"} with history count {history?.Count() ?? 0}. Content: {lastTextMessage?.Content ?? "N/A"}."); return null; });
 
-                var chatHistory = new List<IMessage>();
-                var replyOptions = new AutoGen.Core.GenerateReplyOptions();
 
+                var chatHistory = new List<IMessage>();
+                var replyOptions = new AutoGen.Core.GenerateReplyOptions(); // Default options
+
+                // Step 1: Independent analysis of training performance
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: System provides independent training performance metrics to agents.");
                 chatHistory.Add(new AutoGen.Core.TextMessage(role: Role.User, content: $"Initial Model Training Review:\nModel A Training Error (MAE equivalent): {(float.IsNaN(modelATrainingError) ? "N/A" : modelATrainingError.ToString("F6"))}\nModel B Training Error (MAE equivalent): {(float.IsNaN(modelBTrainingError) ? "N/A" : modelBTrainingError.ToString("F6"))}\nAgents, analyze your respective training performance based on these metrics. Share your initial assessment with the other agent. Discuss the implications of your individual training errors. Then, await further instructions for comparative analysis."));
 
@@ -6754,10 +6380,13 @@ namespace Agentic_Mod
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentB reacting to training metrics.");
                 var replyB1 = await agentB.GenerateReplyAsync(chatHistory, replyOptions, cancellationToken: CancellationToken.None); chatHistory.Add(replyB1); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentB reply received. Content: {(replyB1 as AutoGen.Core.TextMessage)?.Content ?? "N/A"}");
 
+
+                // Step 2: Comparative analysis of prediction arrays
                 if (modelAPredictions != null && modelAPredictions.Length > 0 && modelBPredictions != null && modelBPredictions.Length > 0)
                 {
                     float[] predictionVectorA = modelAPredictions;
                     float[] predictionVectorB = modelBPredictions;
+                    // Ensure arrays are of the same length for comparison by taking the minimum length
                     int minLength = Math.Min(predictionVectorA.Length, predictionVectorB.Length);
                     predictionVectorA = predictionVectorA.Take(minLength).ToArray();
                     predictionVectorB = predictionVectorB.Take(minLength).ToArray();
@@ -6770,6 +6399,7 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentB performing and discussing comparative analysis.");
                     var replyB2 = await agentB.GenerateReplyAsync(chatHistory, replyOptions, cancellationToken: CancellationToken.None); chatHistory.Add(replyB2); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentB reply received. Content: {(replyB2 as AutoGen.Core.TextMessage)?.Content ?? "N/A"}");
 
+                    // C# performs the actual statistical calculations and finds the most similar index
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: C# logic performing statistical analysis and finding most similar index based on agents' instructions.");
                     double mae = CalculateMeanAbsoluteError(predictionVectorA, predictionVectorB);
                     double correlation = CalculateCorrelationCoefficient(predictionVectorA, predictionVectorB);
@@ -6786,9 +6416,13 @@ namespace Agentic_Mod
                     var replyA3 = await agentA.GenerateReplyAsync(chatHistory, replyOptions, cancellationToken: CancellationToken.None); chatHistory.Add(replyA3); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentA reply received. Content: {(replyA3 as AutoGen.Core.TextMessage)?.Content ?? "N/A"}");
                     var replyB3 = await agentB.GenerateReplyAsync(chatHistory, replyOptions, cancellationToken: CancellationToken.None); chatHistory.Add(replyB3); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentB reply received. Content: {(replyB3 as AutoGen.Core.TextMessage)?.Content ?? "N/A"}");
 
-                    double simulatedMAE = double.NaN;
-                    double simulatedCorrelation = double.NaN;
-                    double simulatedMSE = double.NaN;
+
+                    // Step 3: Simulated inference on a common validation set
+                    double simulatedMAE = double.NaN; // Initialize to NaN
+                    double simulatedCorrelation = double.NaN; // Initialize to NaN
+                    double simulatedMSE = double.NaN; // Initialize to NaN
+
+                    // Create a small validation dataset for simulated inference
                     float[][] validationNumericalSamples = new float[][] { new float[] { 0.4f, 0.6f, 0.2f, 0.70f }, new float[] { 0.7f, 0.1f, 0.5f, 0.40f }, new float[] { 0.9f, 0.9f, 0.9f, 0.10f }, new float[] { 0.1f, 0.1f, 0.1f, 0.90f } };
                     string[] validationWordSamples = new string[] { "market stability medium", "customer feedback mixed", "strong positive outlook", "significant negative factors" };
                     float[,] validationNumericalData = ConvertJaggedToMultidimensional_Local(validationNumericalSamples);
@@ -6806,11 +6440,14 @@ namespace Agentic_Mod
                             float[] simulatedPredsA_flat = new float[simulatedPredictionsA.GetLength(0)];
                             float[] simulatedPredsB_flat = new float[simulatedPredictionsB.GetLength(0)];
                             for (int i = 0; i < simulatedPredictionsA.GetLength(0); i++) { simulatedPredsA_flat[i] = simulatedPredictionsA[i, 0]; simulatedPredsB_flat[i] = simulatedPredictionsB[i, 0]; }
+
                             simulatedMAE = CalculateMeanAbsoluteError(simulatedPredsA_flat, simulatedPredsB_flat);
                             simulatedCorrelation = CalculateCorrelationCoefficient(simulatedPredsA_flat, simulatedPredsB_flat);
                             simulatedMSE = CalculateMeanSquaredError(simulatedPredsA_flat, simulatedPredsB_flat);
                             double simulatedRMS = CalculateRootMeanSquare(simulatedPredsA_flat, simulatedPredsB_flat);
                             double simulatedCV = CalculateCoefficientOfVariationOfDifferences(simulatedPredsA_flat, simulatedPredsB_flat);
+
+                            // Store average simulated outputs
                             simulatedOutputA = simulatedPredsA_flat.Average();
                             simulatedOutputB = simulatedPredsB_flat.Average();
 
@@ -6824,7 +6461,10 @@ namespace Agentic_Mod
                             var replyA4 = await agentA.GenerateReplyAsync(chatHistory, replyOptions, cancellationToken: CancellationToken.None); chatHistory.Add(replyA4); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentA reply received. Content: {(replyA4 as AutoGen.Core.TextMessage)?.Content ?? "N/A"}");
                             var replyB4 = await agentB.GenerateReplyAsync(chatHistory, replyOptions, cancellationToken: CancellationToken.None); chatHistory.Add(replyB4); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AgentB reply received. Content: {(replyB4 as AutoGen.Core.TextMessage)?.Content ?? "N/A"}");
 
+                            // Determine if full data was available for analysis
                             fullDataAvailable = (modelACombinedParams?.Length ?? 0) > 0 && (modelBCombinedParams?.Length ?? 0) > 0 && (modelAPredictions?.Length ?? 0) > 0 && (modelBPredictions?.Length ?? 0) > 0;
+
+                            // Construct a more detailed overall summary based on all metrics
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: C# logic determining overall summary based on all metrics.");
                             List<string> summaryParts = new List<string>();
                             if (mae < 0.03 && Math.Abs(correlation) > 0.95 && mse < 0.005) summaryParts.Add("Very High Full Prediction Agreement");
@@ -6832,7 +6472,7 @@ namespace Agentic_Mod
                             else if (mae < 0.15 && Math.Abs(correlation) > 0.6) summaryParts.Add("Moderate Full Prediction Agreement");
                             else summaryParts.Add("Significant Full Prediction Differences");
 
-                            if (!double.IsNaN(simulatedMAE))
+                            if (!double.IsNaN(simulatedMAE)) // Check if simulatedMAE was calculated
                             {
                                 if (simulatedMAE < 0.05 && Math.Abs(simulatedCorrelation) > 0.9) summaryParts.Add("High Simulated Inference Consistency");
                                 else if (simulatedMAE < 0.15 && Math.Abs(simulatedCorrelation) > 0.7) summaryParts.Add("Moderate Simulated Inference Consistency");
@@ -6850,84 +6490,191 @@ namespace Agentic_Mod
                             }
                             else summaryParts.Add("Individual Training Metrics Unavailable");
 
+                            // Calculate a confidence score based on key metrics
                             double confidenceScore = 0.0;
-                            if (fullDataAvailable && !double.IsNaN(simulatedMAE))
+                            if (fullDataAvailable && !double.IsNaN(simulatedMAE)) // Ensure all necessary data is available
                             {
-                                confidenceScore = (Math.Abs(correlation) * 0.3) + (Math.Max(0, 1.0 - mae / 0.2) * 0.2) + (Math.Abs(simulatedCorrelation) * 0.3) + (Math.Max(0, 1.0 - simulatedMAE / 0.2) * 0.2);
-                                confidenceScore = Math.Round(Math.Max(0, Math.Min(1, confidenceScore)), 2);
+                                confidenceScore = (Math.Abs(correlation) * 0.3) + // Correlation from full predictions
+                                                  (Math.Max(0, 1.0 - mae / 0.2) * 0.2) + // MAE from full predictions (scaled)
+                                                  (Math.Abs(simulatedCorrelation) * 0.3) + // Correlation from simulated inference
+                                                  (Math.Max(0, 1.0 - simulatedMAE / 0.2) * 0.2); // MAE from simulated inference (scaled)
+                                confidenceScore = Math.Round(Math.Max(0, Math.Min(1, confidenceScore)), 2); // Clamp and round
                                 summaryParts.Add($"Combined Confidence: {confidenceScore:P0}");
                             }
-                            else summaryParts.Add("Confidence Score N/A");
+                            else
+                            {
+                                summaryParts.Add("Confidence Score N/A");
+                            }
                             autoGenOverallSummary = string.Join(" | ", summaryParts);
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Final Overall Summary: {autoGenOverallSummary}.");
-                        }
-                        else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Simulated inference produced no valid predictions. Skipping final comparison step."); autoGenOverallSummary = "Simulated Inference Failed - " + autoGenOverallSummary; }
-                    }
-                    else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Validation data generation failed or mismatch. Skipping simulated inference and final comparison step."); autoGenOverallSummary = "Validation Data Unavailable - " + autoGenOverallSummary; }
-                }
-                else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Model A and/or Model B predictions were null or empty. Skipping AutoGen collaboration entirely."); autoGenOverallSummary = "Predictions Unavailable - Minimal Analysis"; }
 
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Simulated inference produced no valid predictions. Skipping final comparison step.");
+                            autoGenOverallSummary = "Simulated Inference Failed - " + autoGenOverallSummary; // Append to existing partial summary
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Validation data generation failed or mismatch. Skipping simulated inference and final comparison step.");
+                        autoGenOverallSummary = "Validation Data Unavailable - " + autoGenOverallSummary; // Append to existing partial summary
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: Model A and/or Model B predictions were null or empty. Skipping AutoGen collaboration entirely.");
+                    autoGenOverallSummary = "Predictions Unavailable - Minimal Analysis";
+                }
+
+                // Store AutoGen results and other derived data in the result dictionaries for potential downstream use or logging
                 unitAResults["AutoGen_OverallSummary_D"] = autoGenOverallSummary;
                 unitBResults["AutoGen_OverallSummary_D"] = autoGenOverallSummary;
-                unitAResults["AutoGen_SimulatedOutputA_D"] = simulatedOutputA;
-                unitBResults["AutoGen_SimulatedOutputB_D"] = simulatedOutputB;
+                unitAResults["AutoGen_SimulatedOutputA_D"] = simulatedOutputA; // Will be NaN if simulation didn't run
+                unitBResults["AutoGen_SimulatedOutputB_D"] = simulatedOutputB; // Will be NaN if simulation didn't run
+                // Store the prediction value used for the common input simulation (if applicable)
                 unitAResults["AutoGen_SelectedInputPrediction_D"] = selectedPredictionIndex != -1 && modelAPredictions?.Length > selectedPredictionIndex ? modelAPredictions[selectedPredictionIndex] : float.NaN;
                 unitBResults["AutoGen_SelectedInputPrediction_D"] = selectedPredictionIndex != -1 && modelBPredictions?.Length > selectedPredictionIndex ? modelBPredictions[selectedPredictionIndex] : float.NaN;
+
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Agent Collaboration: AutoGen workflow completed. Overall summary: {autoGenOverallSummary}");
 
+                // Conceptual Model Merging (if parameters are available)
                 byte[]? mergedModelData = null;
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Attempting conceptual model merge.");
+
                 if (modelACombinedParams != null && modelACombinedParams.Length > 0 && modelBCombinedParams != null && modelBCombinedParams.Length > 0)
                 {
-                    try { mergedModelData = modelACombinedParams.Concat(modelBCombinedParams).ToArray(); Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Conceptually merged Model A ({modelACombinedParams.Length} bytes) and Model B ({modelBCombinedParams.Length} bytes) parameters. Merged data size: {mergedModelData.Length} bytes."); }
-                    catch (Exception mergeEx) { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error during conceptual model merge: {mergeEx.Message}"); mergedModelData = new byte[0]; }
+                    try
+                    {
+                        mergedModelData = modelACombinedParams.Concat(modelBCombinedParams).ToArray();
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Conceptually merged Model A ({modelACombinedParams.Length} bytes) and Model B ({modelBCombinedParams.Length} bytes) parameters. Merged data size: {mergedModelData.Length} bytes.");
+                    }
+                    catch (Exception mergeEx)
+                    {
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error during conceptual model merge: {mergeEx.Message}");
+                        mergedModelData = new byte[0]; // Ensure it's initialized on error
+                    }
                 }
-                else if (modelACombinedParams != null && modelACombinedParams.Length > 0) { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Only Model A parameters available. Using Model A parameters ({modelACombinedParams.Length} bytes) as merged data (conceptually)."); mergedModelData = modelACombinedParams; }
-                else if (modelBCombinedParams != null && modelBCombinedParams.Length > 0) { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Only Model B parameters available. Using Model B parameters ({modelBCombinedParams.Length} bytes) as merged data (conceptually)."); mergedModelData = modelBCombinedParams; }
-                else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Neither Model A nor Model B parameters were found. Cannot perform conceptual merge. Merged data is empty."); mergedModelData = new byte[0]; }
+                else if (modelACombinedParams != null && modelACombinedParams.Length > 0)
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Only Model A parameters available. Using Model A parameters ({modelACombinedParams.Length} bytes) as merged data (conceptually).");
+                    mergedModelData = modelACombinedParams;
+                }
+                else if (modelBCombinedParams != null && modelBCombinedParams.Length > 0)
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Only Model B parameters available. Using Model B parameters ({modelBCombinedParams.Length} bytes) as merged data (conceptually).");
+                    mergedModelData = modelBCombinedParams;
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Neither Model A nor Model B parameters were found. Cannot perform conceptual merge. Merged data is empty.");
+                    mergedModelData = new byte[0]; // Ensure it's initialized
+                }
+
 
                 RuntimeProcessingContext.StoreContextValue("merged_model_params", mergedModelData);
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Stored conceptual merged model data ({mergedModelData?.Length ?? 0} bytes) in RuntimeContext.");
 
+
+                // Final update to the CoreMlOutcomeRecord
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Updating CoreMlOutcomeRecord with final details.");
                 outcomeRecord.OutcomeGenerationTimestamp = DateTime.UtcNow;
-                string modelAPredInfo = modelAPredictions != null && modelAPredictions.Length > 0 ? $"ModelA_Preds_Count:{modelAPredictions.Length}_BestMatchIdx:{selectedPredictionIndex}_InputUsed:{(selectedPredictionIndex != -1 && selectedPredictionIndex < modelAPredictions.Length ? modelAPredictions[selectedPredictionIndex].ToString("F6") : "N/A")}" : "ModelA_Preds_Unavailable";
+
+                // Populate derived vectors with information about predictions and simulations
+                string modelAPredInfo = modelAPredictions != null && modelAPredictions.Length > 0
+                    ? $"ModelA_Preds_Count:{modelAPredictions.Length}_BestMatchIdx:{selectedPredictionIndex}_InputUsed:{(selectedPredictionIndex != -1 && selectedPredictionIndex < modelAPredictions.Length ? modelAPredictions[selectedPredictionIndex].ToString("F6") : "N/A")}"
+                    : "ModelA_Preds_Unavailable";
                 outcomeRecord.DerivedProductFeatureVector = modelAPredInfo;
-                string modelBPredSimInfo = modelBPredictions != null && modelBPredictions.Length > 0 ? $"ModelB_Preds_Count:{modelBPredictions.Length}_SimOutputA:{simulatedOutputA:F6}_SimOutputB:{simulatedOutputB:F6}" : "ModelB_Preds_Unavailable";
+
+                string modelBPredSimInfo = modelBPredictions != null && modelBPredictions.Length > 0
+                    ? $"ModelB_Preds_Count:{modelBPredictions.Length}_SimOutputA:{simulatedOutputA:F6}_SimOutputB:{simulatedOutputB:F6}"
+                    : "ModelB_Preds_Unavailable";
                 outcomeRecord.DerivedServiceBenefitVector = modelBPredSimInfo;
 
+
+                // Update classification based on data availability and processing status
                 int classificationId;
                 string classificationDescription = outcomeRecord.CategoricalClassificationDescription ?? "";
+                // Clean up previous status indicators before adding new ones
                 classificationDescription = classificationDescription.Replace(" (Unit A Warn)", "").Replace(" (Unit B Warn)", "").Replace(" (Unit A Error)", "").Replace(" (Unit B Error)", "").Replace(" (TrainingError)", "");
+
+                // Check data availability for classification
                 bool partialDataAvailable = !fullDataAvailable && ((modelACombinedParams?.Length ?? 0) > 0 || (modelBCombinedParams?.Length ?? 0) > 0 || (modelAPredictions?.Length ?? 0) > 0 || (modelBPredictions?.Length ?? 0) > 0);
-                if (fullDataAvailable) { classificationId = 250; classificationDescription += $" (Full Data Processed, Analysis: {autoGenOverallSummary})"; }
-                else if (partialDataAvailable) { classificationId = 150; classificationDescription += $" (Partial Data Processed, Analysis: {autoGenOverallSummary})"; }
-                else { classificationId = 50; classificationDescription += $" (No Model Data, Analysis: {autoGenOverallSummary})"; }
-                if (unitAResults.ContainsKey("ModelAProcessingError")) classificationDescription += " (Unit A Error)"; else if (unitAResults.ContainsKey("ModelAProcessingWarning")) classificationDescription += " (Unit A Warn)";
-                if (unitBResults.ContainsKey("ModelBProcessingError")) classificationDescription += " (Unit B Error)"; else if (unitBResults.ContainsKey("ModelBProcessingWarning")) classificationDescription += " (Unit B Warn)";
+
+
+                if (fullDataAvailable)
+                {
+                    classificationId = 250; // Indicate full processing
+                    classificationDescription += $" (Full Data Processed, Analysis: {autoGenOverallSummary})";
+                }
+                else if (partialDataAvailable)
+                {
+                    classificationId = 150; // Indicate partial processing
+                    classificationDescription += $" (Partial Data Processed, Analysis: {autoGenOverallSummary})";
+                }
+                else
+                {
+                    classificationId = 50; // Indicate minimal/no data for processing
+                    classificationDescription += $" (No Model Data, Analysis: {autoGenOverallSummary})";
+                }
+
+                // Append error/warning flags from individual units
+                if (unitAResults.ContainsKey("ModelAProcessingError")) classificationDescription += " (Unit A Error)";
+                else if (unitAResults.ContainsKey("ModelAProcessingWarning")) classificationDescription += " (Unit A Warn)";
+
+                if (unitBResults.ContainsKey("ModelBProcessingError")) classificationDescription += " (Unit B Error)";
+                else if (unitBResults.ContainsKey("ModelBProcessingWarning")) classificationDescription += " (Unit B Warn)";
+
                 outcomeRecord.CategoricalClassificationIdentifier = classificationId;
                 outcomeRecord.CategoricalClassificationDescription = classificationDescription;
 
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Final Outcome Record Details:\n  - RecordIdentifier: {outcomeRecord.RecordIdentifier}\n  - AssociatedCustomerIdentifier: {outcomeRecord.AssociatedCustomerIdentifier}\n  - OutcomeGenerationTimestamp: {outcomeRecord.OutcomeGenerationTimestamp}\n  - CategoricalClassificationIdentifier: {outcomeRecord.CategoricalClassificationIdentifier}\n  - CategoricalClassificationDescription: {outcomeRecord.CategoricalClassificationDescription}\n  - SerializedSimulatedModelData Size: {outcomeRecord.SerializedSimulatedModelData?.Length ?? 0} bytes\n  - AncillaryBinaryDataPayload Size: {outcomeRecord.AncillaryBinaryDataPayload?.Length ?? 0} bytes\n  - DerivedProductFeatureVector: {outcomeRecord.DerivedProductFeatureVector}\n  - DerivedServiceBenefitVector: {outcomeRecord.DerivedServiceBenefitVector}");
 
+                // Save the final state of the outcome record to simulated persistence
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Attempting to save final CoreMlOutcomeRecord to simulated persistence.");
                 var recordIndex = InMemoryTestDataSet.SimulatedCoreOutcomes.FindIndex(r => r.RecordIdentifier == outcomeRecord.RecordIdentifier);
-                if (recordIndex >= 0) { lock (InMemoryTestDataSet.SimulatedCoreOutcomes) { InMemoryTestDataSet.SimulatedCoreOutcomes[recordIndex] = outcomeRecord; } Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Final CoreMlOutcomeRecord (ID: {outcomeRecord.RecordIdentifier}) state saved successfully to simulated persistent storage."); }
-                else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error - CoreMlOutcomeRecord with Identifier {outcomeRecord.RecordIdentifier} not found in simulated storage during final update attempt!"); }
+                if (recordIndex >= 0)
+                {
+                    lock (InMemoryTestDataSet.SimulatedCoreOutcomes) // Ensure thread-safe update
+                    {
+                        InMemoryTestDataSet.SimulatedCoreOutcomes[recordIndex] = outcomeRecord;
+                    }
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Final CoreMlOutcomeRecord (ID: {outcomeRecord.RecordIdentifier}) state saved successfully to simulated persistent storage.");
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error - CoreMlOutcomeRecord with Identifier {outcomeRecord.RecordIdentifier} not found in simulated storage during final update attempt!");
+                }
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Sequential Final Processing Unit D (Actual Model D Concept with AutoGen) completed all processing steps successfully.");
             }
             catch (Exception ex) // Inner try-catch for the main logic
             {
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Unhandled Error in Sequential Final Processing Unit D: {ex.Message}");
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Stack Trace: {ex.StackTrace}");
+
+                // Update outcome record with error state
                 outcomeRecord.CategoricalClassificationDescription = (outcomeRecord.CategoricalClassificationDescription ?? "") + " (FinalProcessingError)";
                 outcomeRecord.OutcomeGenerationTimestamp = DateTime.UtcNow;
-                outcomeRecord.CategoricalClassificationIdentifier = Math.Min(outcomeRecord.CategoricalClassificationIdentifier ?? 50, 100);
+                outcomeRecord.CategoricalClassificationIdentifier = Math.Min(outcomeRecord.CategoricalClassificationIdentifier ?? 50, 100); // Use a lower ID for error
+
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: SequentialFinalProcessingUnitD: Attempting to save CoreMlOutcomeRecord with error state.");
                 var recordIndex = InMemoryTestDataSet.SimulatedCoreOutcomes.FindIndex(r => r.RecordIdentifier == outcomeRecord.RecordIdentifier);
-                if (recordIndex >= 0) { lock (InMemoryTestDataSet.SimulatedCoreOutcomes) { InMemoryTestDataSet.SimulatedCoreOutcomes[recordIndex] = outcomeRecord; } Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Updated simulated persistent storage with error state."); }
-                else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error state occurred, but CoreMlOutcomeRecord with Identifier {outcomeRecord.RecordIdentifier} was not found for saving."); }
-                throw;
+                if (recordIndex >= 0)
+                {
+                    lock (InMemoryTestDataSet.SimulatedCoreOutcomes)
+                    {
+                        InMemoryTestDataSet.SimulatedCoreOutcomes[recordIndex] = outcomeRecord;
+                    }
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Updated simulated persistent storage with error state.");
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error state occurred, but CoreMlOutcomeRecord with Identifier {outcomeRecord.RecordIdentifier} was not found for saving.");
+                }
+                throw; // Re-throw to be caught by the orchestrator
             }
             finally // Corresponds to the outer try
             {
@@ -7206,3 +6953,4 @@ namespace Agentic_Mod
         }
     }
 }
+
