@@ -3716,10 +3716,10 @@ namespace Agentic_Mod
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                        // modelAGraph = tf.Graph(); // This is now initialized at the method level for ParallelProcessingUnitA
+                        modelAGraph = tf.Graph(); // Initialize graph for Model A
                         modelAGraph.as_default(); // Set as default graph for operation creation
                         {
-                            // modelASession = tf.Session(modelAGraph); // This is now initialized at the method level for ParallelProcessingUnitA
+                            modelASession = tf.Session(modelAGraph); // Create session with Model A's graph
                             try
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Initializing Model A Architecture in its own graph.");
@@ -3798,7 +3798,7 @@ namespace Agentic_Mod
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Predictions Shape: {string.Join(",", finalPredictionsDims)}");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat.Take(Math.Min(finalPredictionsFlat.Length, 10)).Select(p => p.ToString("F4")))}...]");
 
-                                var finalParams = modelASession.run(new ITensorOrOperation[] { (ITensorOrOperation)weights1, (ITensorOrOperation)bias1, (ITensorOrOperation)weights2, (ITensorOrOperation)bias2 }); // Use modelASession
+                                var finalParams = modelASession.run(new ITensorOrOperation[] { weights1.AsTensor(), bias1.AsTensor(), weights2.AsTensor(), bias2.AsTensor() }); // Use modelASession
                                 var finalWeights1 = ((Tensor)finalParams[0]).ToArray<float>(); var finalBias1 = ((Tensor)finalParams[1]).ToArray<float>();
                                 var finalWeights2 = ((Tensor)finalParams[2]).ToArray<float>(); var finalBias2 = ((Tensor)finalParams[3]).ToArray<float>();
                                 byte[] trainedWeights1Bytes = SerializeFloatArray(finalWeights1); byte[] trainedBias1Bytes = SerializeFloatArray(finalBias1);
@@ -5590,7 +5590,7 @@ namespace Agentic_Mod
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions Shape: {string.Join(",", finalPredictionsDims_B)}");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat_B.Take(Math.Min(finalPredictionsFlat_B.Length, 10)).Select(p => p.ToString("F4")))}...]");
 
-                                var finalParams_B = modelBSession.run(new ITensorOrOperation[] { (ITensorOrOperation)weights1_B_Ops, (ITensorOrOperation)bias1_B_Ops, (ITensorOrOperation)weights2_B_Ops, (ITensorOrOperation)bias2_B_Ops }); // Use modelBSession
+                                var finalParams_B = modelBSession.run(new ITensorOrOperation[] { weights1_B_Ops.AsTensor(), bias1_B_Ops.AsTensor(), weights2_B_Ops.AsTensor(), bias2_B_Ops.AsTensor() }); // Use modelBSession
                                 var finalWeights1_B = ((Tensor)finalParams_B[0]).ToArray<float>(); var finalBias1_B = ((Tensor)finalParams_B[1]).ToArray<float>();
                                 var finalWeights2_B = ((Tensor)finalParams_B[2]).ToArray<float>(); var finalBias2_B = ((Tensor)finalParams_B[3]).ToArray<float>();
                                 byte[] trainedWeights1Bytes_B = SerializeFloatArray(finalWeights1_B); byte[] trainedBias1Bytes_B = SerializeFloatArray(finalBias1_B);
