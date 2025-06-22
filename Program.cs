@@ -1434,6 +1434,60 @@ namespace Agentic_Mod
         /// including data collection, feature engineering, tensor generation, quality checks,
         /// model training using TensorFlow.NET, and generating performance projections.
         /// </summary>
+       /// <summary>
+            /// This C# summary outlines key enhancements centered around a dynamic "Expression Proliferation" mechanism,
+            /// integrated into an N-Dimensional embedding and neural network training process.
+            ///
+            /// Key Changes Implemented:
+            ///
+            /// 1.  Expression Proliferation:
+            ///     The core mathematical expression evolved from a static "1+1" to a dynamic "1+P".
+            ///     'P' represents the proliferation parameter, which starts at 1 and increments by 1
+            ///     every 10 training epochs (P = 1 + floor(epoch / 10)).
+            ///
+            /// 2.  N-Dimensional Embedding Integration:
+            ///     A new `ComputeNDimensionalEmbedding()` method was added. This method implements the
+            ///     complete NDimensionalClusterExecution formula, which encompasses:
+            ///     - Density-weighted clustering
+            ///     - Geometric lifting
+            ///     - Tensor field computation
+            ///     - Velocity computations.
+            ///     This embedding is calculated in an n-dimensional space for each instance of 'P'
+            ///     (each proliferation state) during the training phase.
+            ///
+            /// 3.  Clear Sequential Process Documentation:
+            ///     The enhanced process follows a clear sequence:
+            ///     STEP 1→2: The "1+P" expression is processed (e.g., via Regex) and feeds into the N-Dimensional formula.
+            ///     STEP 3: The N-dimensional embedding is computed using the current 'P' value via cluster execution.
+            ///     STEP 4: Curvature is applied, with scaling influenced by the proliferation parameter 'P'.
+            ///     STEP 5: Weight generation within the network is influenced by 'P'.
+            ///     STEP 6: Vertex mask calculations also incorporate 'P'.
+            ///     STEP 7: The training loop iteratively updates 'P' and recalculates affected components.
+            ///     STEP 8: Performance projection now includes metrics reflecting the impact of proliferation.
+            ///
+            /// 4.  Cluster Input Data Organization:
+            ///     Processing for cluster input data has been separated and clearly delineated with section headers.
+            ///     This organization facilitates future dynamic generation of input data and includes
+            ///     comprehensive logging of the clustering process.
+            ///
+            /// 5.  Proliferation During Training:
+            ///     The proliferation mechanism is active throughout training:
+            ///     - Each training epoch calculates the current proliferation instance: P = 1 + (epoch / 10).
+            ///     - The N-dimensional embedding is recomputed for each training batch using the current 'P' value.
+            ///     - The "1+P" expression, through the value of 'P' and the derived embedding, influences
+            ///       vertex masks, curvature coefficients, and weight generation.
+            ///     - The formula effectively proliferates through the network's architecture during training iterations.
+            ///
+            /// 6.  Complete Integration:
+            ///     All stages of the model and training pipeline now cohesively incorporate the proliferation mechanism.
+            ///     The TensorFlow architecture has been extended to accept the N-dimensional embedding as input.
+            ///     Vertex masks are applied to hidden layers with scaling dependent on 'P'.
+            ///     The final trained model includes metadata related to the proliferation process, including the final 'P' value.
+            ///
+            /// The method now demonstrates the complete process of how the "1+P" expression proliferates
+            /// through the n-dimensional space during training, with each iteration computing the full
+            /// cluster execution formula as an embedding that influences the neural network's learning process.
+            /// </summary>
         /// <param name="outcomeRecord">The core CoreMlOutcomeRecord object being processed.</param>
         /// <param name="customerIdentifier">The identifier for the associated customer.</param>
         /// <param name="requestSequenceIdentifier">A unique identifier for the current workflow request session.</param>
@@ -1454,11 +1508,19 @@ namespace Agentic_Mod
                 #region Helper Methods (Required by this method)
 
                 /// <summary>
-                /// Converts a simple mathematical expression into a regular expression pattern.
+                /// STEP 1: EXPRESSION → REGEX CONVERSION WITH PROLIFERATION
+                /// Converts a mathematical expression with proliferation parameter into a regular expression pattern.
+                /// The proliferation parameter P allows the expression to scale across n-dimensional space.
                 /// </summary>
                 string ConvertExpressionToRegex(string expression)
                 {
-                    // For the simple expression "1+1", create a regex pattern with capture groups
+                    // Handle the proliferated expression "1+P" where P is the proliferation parameter
+                    if (expression == "1+P")
+                    {
+                        return @"(\d+)([\+\-\*\/])(P)"; // Capture proliferation parameter
+                    }
+
+                    // Legacy support for "1+1" 
                     if (expression == "1+1")
                     {
                         return @"(\d+)([\+\-\*\/])(\d+)";
@@ -1467,17 +1529,31 @@ namespace Agentic_Mod
                     // For more complex expressions, implement a more sophisticated parser
                     string pattern = expression.Replace("1", @"(\d+)");
                     pattern = pattern.Replace("+", @"([\+\-\*\/])");
+                    pattern = pattern.Replace("P", @"(P)"); // Handle proliferation parameter
 
                     return pattern;
                 }
 
                 /// <summary>
+                /// STEP 2: REGEX → N-DIMENSIONAL EXPRESSION CONVERSION WITH PROLIFERATION
                 /// Converts a regular expression pattern into an n-dimensional compute-safe expression.
+                /// This is where the proliferation parameter P gets embedded into the dimensional formula.
+                /// The resulting expression will be applied to vertices and modified by curvature during training.
                 /// </summary>
-                string ConvertRegexToNDimensionalExpression(string regexPattern)
+                string ConvertRegexToNDimensionalExpression(string regexPattern, int proliferationInstance = 1)
                 {
-                    // Convert the pattern to an n-dimensional expression
-                    if (regexPattern == @"(\d+)([\+\-\*\/])(\d+)" || (regexPattern?.Contains(@"(\d+)") == true && regexPattern?.Contains(@"([\+\-\*\/])") == true)) // Added null check and boolean logic
+                    // Handle proliferated pattern "1+P" - the core of our dimensional expansion
+                    if (regexPattern == @"(\d+)([\+\-\*\/])(P)" ||
+                        (regexPattern?.Contains(@"(\d+)") == true && regexPattern?.Contains(@"(P)") == true))
+                    {
+                        // PROLIFERATION: P becomes the instance multiplier for dimensional scaling
+                        // This formula will be applied to vertex masks and modified by curvature coefficients
+                        return $"ND(x,y,z,p)=Vx*cos(p*{proliferationInstance})+Vy*sin(p*{proliferationInstance})+Vz*cos(p*{proliferationInstance}/2)";
+                    }
+
+                    // Legacy pattern support
+                    if (regexPattern == @"(\d+)([\+\-\*\/])(\d+)" ||
+                        (regexPattern?.Contains(@"(\d+)") == true && regexPattern?.Contains(@"([\+\-\*\/])") == true))
                     {
                         return "ND(x,y,z,p)=Vx*cos(p)+Vy*sin(p)+Vz*cos(p/2)";
                     }
@@ -1487,44 +1563,296 @@ namespace Agentic_Mod
                 }
 
                 /// <summary>
+                /// STEP 3: N-DIMENSIONAL EMBEDDING COMPUTATION WITH PROLIFERATION
+                /// This embedding computes the full NDimensionalClusterExecution formula in n-dimensional space
+                /// for each proliferation instance during training iterations.
+                /// The embedding integrates density-weighted clustering, geometric lifting, tensor fields, and velocity computations.
+                /// </summary>
+                /// <param name="inputData">Current training batch data</param>
+                /// <param name="proliferationInstance">Current proliferation instance (P value)</param>
+                /// <param name="embeddingDimension">Target embedding dimension</param>
+                /// <returns>N-dimensional embedding incorporating cluster execution results</returns>
+                float[,] ComputeNDimensionalEmbedding(float[,] inputData, int proliferationInstance, int embeddingDimension = 16)
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Computing N-Dimensional Embedding with proliferation instance: {proliferationInstance}");
+
+                    if (inputData == null || inputData.GetLength(0) == 0)
+                    {
+                        return new float[1, embeddingDimension];
+                    }
+
+                    int batchSize = inputData.GetLength(0);
+                    int inputFeatures = inputData.GetLength(1);
+
+                    // Convert to double array for high-precision cluster computation
+                    double[][] dataPoints = new double[batchSize][];
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        dataPoints[i] = new double[inputFeatures];
+                        for (int j = 0; j < inputFeatures; j++)
+                        {
+                            dataPoints[i][j] = inputData[i, j];
+                        }
+                    }
+
+                    // === N-DIMENSIONAL CLUSTER EXECUTION EMBEDDING ===
+                    // Compute the full NDimensionalClusterExecution formula as an embedding
+
+                    // Dynamic parameters based on proliferation
+                    int K = Math.Min(Math.Max(2, proliferationInstance + 1), batchSize); // Clusters scale with proliferation
+                    double r = 0.3 + (proliferationInstance * 0.1); // Radius scales with proliferation
+                    int maxIter = 10 + (proliferationInstance * 2); // Iterations scale with proliferation
+
+                    // === PHASE 1: DATA PREPROCESSING WITH PROLIFERATION SCALING ===
+                    double[] minValues = new double[inputFeatures];
+                    double[] maxValues = new double[inputFeatures];
+
+                    for (int j = 0; j < inputFeatures; j++)
+                    {
+                        minValues[j] = dataPoints.Min(x => x[j]);
+                        maxValues[j] = dataPoints.Max(x => x[j]);
+                    }
+
+                    // Min-Max Normalization with proliferation scaling
+                    double[][] normalizedData = new double[batchSize][];
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        normalizedData[i] = new double[inputFeatures];
+                        for (int j = 0; j < inputFeatures; j++)
+                        {
+                            double range = maxValues[j] - minValues[j];
+                            if (range > 1e-10)
+                            {
+                                normalizedData[i][j] = ((dataPoints[i][j] - minValues[j]) / range) * proliferationInstance;
+                            }
+                            else
+                            {
+                                normalizedData[i][j] = 0.5 * proliferationInstance;
+                            }
+                        }
+                    }
+
+                    // Local Density Computation with proliferation-adjusted radius
+                    double[] densities = new double[batchSize];
+                    double adjustedRadius = r * Math.Sqrt(proliferationInstance);
+
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        for (int j = 0; j < batchSize; j++)
+                        {
+                            if (i != j)
+                            {
+                                double distance = 0;
+                                for (int k = 0; k < inputFeatures; k++)
+                                {
+                                    double diff = normalizedData[i][k] - normalizedData[j][k];
+                                    distance += diff * diff;
+                                }
+                                distance = Math.Sqrt(distance);
+
+                                if (distance <= adjustedRadius)
+                                {
+                                    densities[i] += 1.0;
+                                }
+                            }
+                        }
+                    }
+
+                    // === PHASE 2: DENSITY-NORMALIZED K-MEANS ===
+                    var densityIndexPairs = densities.Select((density, index) => new { Density = density, Index = index })
+                                                   .OrderByDescending(x => x.Density)
+                                                   .Take(K)
+                                                   .ToArray();
+
+                    double[][] centroids = new double[K][];
+                    for (int j = 0; j < K; j++)
+                    {
+                        int seedIndex = densityIndexPairs[j].Index;
+                        centroids[j] = (double[])normalizedData[seedIndex].Clone();
+                    }
+
+                    // K-Means iteration with proliferation influence
+                    int[] assignments = new int[batchSize];
+                    for (int iter = 0; iter < maxIter; iter++)
+                    {
+                        bool changed = false;
+
+                        // Assignment step
+                        for (int i = 0; i < batchSize; i++)
+                        {
+                            int bestCluster = 0;
+                            double bestDistance = double.MaxValue;
+
+                            for (int j = 0; j < K; j++)
+                            {
+                                double distance = 0;
+                                for (int k = 0; k < inputFeatures; k++)
+                                {
+                                    double diff = normalizedData[i][k] - centroids[j][k];
+                                    distance += diff * diff;
+                                }
+
+                                if (distance < bestDistance)
+                                {
+                                    bestDistance = distance;
+                                    bestCluster = j;
+                                }
+                            }
+
+                            if (assignments[i] != bestCluster)
+                            {
+                                assignments[i] = bestCluster;
+                                changed = true;
+                            }
+                        }
+
+                        if (!changed) break;
+
+                        // Update step with proliferation weighting
+                        for (int j = 0; j < K; j++)
+                        {
+                            var clusterPoints = normalizedData.Where((point, index) => assignments[index] == j).ToArray();
+                            if (clusterPoints.Length > 0)
+                            {
+                                for (int k = 0; k < inputFeatures; k++)
+                                {
+                                    centroids[j][k] = clusterPoints.Average(point => point[k]) * proliferationInstance;
+                                }
+                            }
+                        }
+                    }
+
+                    // === PHASE 3: GEOMETRIC LIFTING TO ℝ^(d+1) ===
+                    // Relative Centroid
+                    double[] relativeCenter = new double[inputFeatures];
+                    for (int k = 0; k < inputFeatures; k++)
+                    {
+                        relativeCenter[k] = centroids.Average(centroid => centroid[k]);
+                    }
+
+                    // Simplex Construction with proliferation height scaling
+                    double relativeMagnitude = Math.Sqrt(relativeCenter.Sum(x => x * x));
+                    double apexHeight = relativeMagnitude * proliferationInstance;
+
+                    // === PHASE 4: TENSOR & VELOCITY COMPUTATION ===
+                    // Base Centroid calculation
+                    double[] baseCentroid = new double[inputFeatures + 1];
+                    for (int j = 0; j < K; j++)
+                    {
+                        for (int k = 0; k < inputFeatures; k++)
+                        {
+                            baseCentroid[k] += centroids[j][k] / K;
+                        }
+                    }
+                    baseCentroid[inputFeatures] = 0; // z = 0 for base
+
+                    // Apex with proliferation scaling
+                    double[] apex = new double[inputFeatures + 1];
+                    for (int k = 0; k < inputFeatures; k++)
+                    {
+                        apex[k] = relativeCenter[k];
+                    }
+                    apex[inputFeatures] = apexHeight;
+
+                    // Direction vector
+                    double[] direction = new double[inputFeatures + 1];
+                    for (int k = 0; k <= inputFeatures; k++)
+                    {
+                        direction[k] = apex[k] - baseCentroid[k];
+                    }
+
+                    // Magnitude & Unit Direction
+                    double magnitude = Math.Sqrt(direction.Sum(x => x * x));
+                    double[] unitDirection = new double[inputFeatures + 1];
+                    if (magnitude > 1e-10)
+                    {
+                        for (int k = 0; k <= inputFeatures; k++)
+                        {
+                            unitDirection[k] = direction[k] / magnitude;
+                        }
+                    }
+
+                    // Velocity Field with proliferation
+                    double[] velocity = new double[inputFeatures + 1];
+                    for (int k = 0; k <= inputFeatures; k++)
+                    {
+                        velocity[k] = magnitude * unitDirection[k] * proliferationInstance;
+                    }
+
+                    // === PHASE 5: EMBEDDING GENERATION ===
+                    // Generate the final n-dimensional embedding from cluster execution results
+                    float[,] embedding = new float[batchSize, embeddingDimension];
+
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        int clusterIdx = assignments[i];
+                        double density = densities[i];
+
+                        for (int j = 0; j < embeddingDimension; j++)
+                        {
+                            // Combine multiple embedding components with proliferation influence
+                            double component = 0;
+
+                            // Component 1: Cluster centroid influence
+                            if (j < inputFeatures && clusterIdx < centroids.Length)
+                            {
+                                component += centroids[clusterIdx][j % inputFeatures] * 0.3;
+                            }
+
+                            // Component 2: Velocity field influence
+                            if (j < velocity.Length)
+                            {
+                                component += velocity[j] * 0.25;
+                            }
+
+                            // Component 3: Unit direction influence
+                            if (j < unitDirection.Length)
+                            {
+                                component += unitDirection[j] * 0.25;
+                            }
+
+                            // Component 4: Density influence with proliferation
+                            component += (density / batchSize) * proliferationInstance * 0.2;
+
+                            // Apply trigonometric transformation based on n-dimensional formula
+                            double p = (double)proliferationInstance;
+                            double x = normalizedData[i][j % inputFeatures];
+                            component = x * Math.Cos(p * j) + component * Math.Sin(p * j) + density * Math.Cos(p * j / 2);
+
+                            embedding[i, j] = (float)component;
+                        }
+                    }
+
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generated N-Dimensional embedding: {batchSize}x{embeddingDimension} with proliferation {proliferationInstance}");
+                    return embedding;
+                }
+
+                /// <summary>
                 /// Transforms word-based samples into numerical embeddings using a simplified embedding technique.
                 /// </summary>
                 float[][] TransformWordsToEmbeddings(string[] wordSamples)
                 {
-                    if (wordSamples == null) return new float[0][]; // Added null check
-                    // Simple word embedding function - in a real implementation, this would use
-                    // proper word embeddings from a pre-trained model or custom embeddings
+                    if (wordSamples == null) return new float[0][];
 
-                    // For this example, we'll convert each word sample to a 10-dimensional vector
-                    // using a consistent but simplified approach
                     int embeddingDimensions = 10;
                     float[][] embeddings = new float[wordSamples.Length][];
 
                     for (int i = 0; i < wordSamples.Length; i++)
                     {
                         embeddings[i] = new float[embeddingDimensions];
+                        string[] words = wordSamples[i]?.Split(' ') ?? new string[0];
 
-                        // Split the sample into words
-                        string[] words = wordSamples[i]?.Split(' ') ?? new string[0]; // Handle null sample
-
-                        // For each word, contribute to the embedding
                         for (int j = 0; j < words.Length; j++)
                         {
                             string word = words[j];
-                            if (string.IsNullOrEmpty(word)) continue; // Skip empty words
+                            if (string.IsNullOrEmpty(word)) continue;
 
-                            // Use a simple hash function to generate values from words
-                            // Ensure the hash function is consistent and spreads values
                             int hashBase = word.GetHashCode();
                             for (int k = 0; k < embeddingDimensions; k++)
                             {
-                                // Generate a value based on hash, dimension, and word index
-                                // Using a prime multiplier to help distribute values
-                                int valueInt = Math.Abs(hashBase * (k + 1) * (j + 1) * 31); // Multiply by prime 31
-                                float value = (valueInt % 1000) / 1000.0f; // Map to 0-1 range
-
-                                // Add to the embedding with position-based weighting (inverse word index)
-                                embeddings[i][k] += value * (1.0f / (j + 1.0f)); // Use 1.0f for float division
+                                int valueInt = Math.Abs(hashBase * (k + 1) * (j + 1) * 31);
+                                float value = (valueInt % 1000) / 1000.0f;
+                                embeddings[i][k] += value * (1.0f / (j + 1.0f));
                             }
                         }
 
@@ -1536,7 +1864,7 @@ namespace Agentic_Mod
                         }
 
                         float magnitude = (float)Math.Sqrt(magnitudeSq);
-                        if (magnitude > 1e-6f) // Use tolerance
+                        if (magnitude > 1e-6f)
                         {
                             for (int k = 0; k < embeddingDimensions; k++)
                             {
@@ -1549,39 +1877,40 @@ namespace Agentic_Mod
                 }
 
                 /// <summary>
+                /// STEP 4: N-DIMENSIONAL EXPRESSION → CURVATURE APPLICATION WITH PROLIFERATION
                 /// Applies the n-dimensional expression to curvature coefficients.
+                /// This is where the proliferated formula begins to influence the geometric properties.
                 /// </summary>
-                float[] ApplyNDimensionalExpressionToCurvature(float[] coefficients, string ndExpression)
+                float[] ApplyNDimensionalExpressionToCurvature(float[] coefficients, string ndExpression, int proliferationInstance = 1)
                 {
-                    if (coefficients == null) return new float[0]; // Added null check
-                    // Parse the expression to determine how to modify coefficients
-                    // For our example derived from "1+1", we'll implement the
-                    // equivalent of "adding 1" to appropriate coefficients
+                    if (coefficients == null) return new float[0];
 
                     float[] modifiedCoefficients = new float[coefficients.Length];
-                    System.Buffer.BlockCopy(coefficients, 0, modifiedCoefficients, 0, coefficients.Length * sizeof(float)); // Use System.Buffer
+                    System.Buffer.BlockCopy(coefficients, 0, modifiedCoefficients, 0, coefficients.Length * sizeof(float));
 
-                    // Apply the expression's effect to the coefficients
+                    // Apply the proliferated expression's effect to the coefficients
                     if (ndExpression.StartsWith("ND(x,y,z,p)="))
                     {
-                        // Extract the dimensional scaling factors from the expression
-                        // For ND(x,y,z,p)=Vx*cos(p)+Vy*sin(p)+Vz*cos(p/2), the 'V' factors are implicitly 1 in this simplified mapping.
-                        // The "1+1" idea suggests a doubling or a primary dimension influence.
-                        // Let's map the "1+1" effect to amplify the primary diagonal coefficients (xx, yy, zz).
-                        float amplificationFactor = 2.0f; // Represents the "1+1" result influencing amplitude
+                        // PROLIFERATION EFFECT: The proliferation instance scales the amplification
+                        // This amplification will affect how the expression influences vertex weights during training
+                        float baseAmplification = 2.0f; // Base "1+1" effect
+                        float proliferationAmplification = baseAmplification * proliferationInstance; // Scaled by P
 
-                        if (modifiedCoefficients.Length > 0) modifiedCoefficients[0] *= amplificationFactor;  // xx coefficient
-                        if (modifiedCoefficients.Length > 1) modifiedCoefficients[1] *= amplificationFactor;  // yy coefficient
-                        if (modifiedCoefficients.Length > 2) modifiedCoefficients[2] *= amplificationFactor;  // zz coefficient
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Applying proliferation amplification factor: {proliferationAmplification} (base: {baseAmplification} * instance: {proliferationInstance})");
 
-                        // Scale cross-terms relative to the primary terms' amplification
-                        float crossTermScale = (amplificationFactor + amplificationFactor) / 2.0f; // Simple average influence
+                        // Apply to primary diagonal coefficients (xx, yy, zz) - these represent the main dimensional influences
+                        if (modifiedCoefficients.Length > 0) modifiedCoefficients[0] *= proliferationAmplification;  // xx coefficient
+                        if (modifiedCoefficients.Length > 1) modifiedCoefficients[1] *= proliferationAmplification;  // yy coefficient
+                        if (modifiedCoefficients.Length > 2) modifiedCoefficients[2] *= proliferationAmplification;  // zz coefficient
+
+                        // Scale cross-terms relative to the proliferated amplification
+                        float crossTermScale = proliferationAmplification * 0.75f; // Slightly less influence for cross-terms
                         if (modifiedCoefficients.Length > 3) modifiedCoefficients[3] *= crossTermScale;  // xy coefficient
                         if (modifiedCoefficients.Length > 4) modifiedCoefficients[4] *= crossTermScale;  // xz coefficient
                         if (modifiedCoefficients.Length > 5) modifiedCoefficients[5] *= crossTermScale;  // yz coefficient
 
-                        // Apply a lesser influence to higher-order terms if they exist
-                        float higherOrderScale = (crossTermScale + 1.0f) / 2.0f; // Average of cross-term scale and default 1.0
+                        // Apply graduated influence to higher-order terms
+                        float higherOrderScale = (crossTermScale + 1.0f) / 2.0f;
                         if (modifiedCoefficients.Length > 6) modifiedCoefficients[6] *= higherOrderScale;
                         if (modifiedCoefficients.Length > 7) modifiedCoefficients[7] *= higherOrderScale;
                         if (modifiedCoefficients.Length > 8) modifiedCoefficients[8] *= higherOrderScale;
@@ -1590,58 +1919,54 @@ namespace Agentic_Mod
                     return modifiedCoefficients;
                 }
 
-
                 /// <summary>
-                /// Generates weight matrices from our n-dimensional expression.
+                /// STEP 5: EXPRESSION → WEIGHT GENERATION WITH PROLIFERATION
+                /// Generates weight matrices from our proliferated n-dimensional expression.
+                /// These weights will be applied to vertices and modified during training iterations.
                 /// </summary>
-                float[,] GenerateWeightsFromExpression(string expression, int inputDim, int outputDim)
+                float[,] GenerateWeightsFromExpression(string expression, int inputDim, int outputDim, int proliferationInstance = 1)
                 {
                     if (inputDim <= 0 || outputDim <= 0)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper: GenerateWeightsFromExpression received invalid dimensions ({inputDim}, {outputDim}). Returning empty array.");
                         return new float[0, 0];
                     }
-                    // Create a weight matrix based on our expression
+
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generating weights with proliferation instance: {proliferationInstance}");
+
                     float[,] weights = new float[inputDim, outputDim];
+                    Random rand = new Random(42 + inputDim * 100 + outputDim + proliferationInstance * 17); // Include proliferation in seed
 
-                    // Use a pseudorandom generator with fixed seed for reproducibility
-                    Random rand = new Random(42 + inputDim * 100 + outputDim); // Vary seed slightly for different matrix sizes
-
-                    // Fill the matrix with values derived from our expression
                     for (int i = 0; i < inputDim; i++)
                     {
                         for (int j = 0; j < outputDim; j++)
                         {
-                            // Base weight value (small random initialization)
-                            float baseWeight = (float)(rand.NextDouble() * 0.04 - 0.02); // Range -0.02 to +0.02
+                            float baseWeight = (float)(rand.NextDouble() * 0.04 - 0.02);
 
-                            // Apply influence from our expression's structure
-                            // For "1+1" -> ND(x,y,z,p)=Vx*cos(p)+Vy*sin(p)+Vz*cos(p/2)
-                            // We want the weights to reflect the oscillatory and dimensional coupling nature.
-                            // Use a combination of indices and trigonometric functions.
+                            // PROLIFERATION INFLUENCE: Scale trigonometric functions by proliferation instance
+                            // This creates the oscillatory pattern that will be applied to vertices
+                            float proliferationFactor = proliferationInstance * 0.5f; // Scale factor for proliferation
+
                             float expressionInfluence = (float)(
-                                Math.Cos((i + j) * Math.PI / (inputDim + outputDim)) + // Cosine based on combined indices
-                                Math.Sin(i * Math.PI / inputDim) * 0.5 +               // Sine based on input index
-                                Math.Cos(j * Math.PI / (outputDim * 2.0)) * 0.5         // Cosine based on output index (half frequency)
+                                Math.Cos((i + j) * Math.PI / (inputDim + outputDim) * proliferationFactor) +
+                                Math.Sin(i * Math.PI / inputDim * proliferationFactor) * 0.5 +
+                                Math.Cos(j * Math.PI / (outputDim * 2.0) * proliferationFactor) * 0.5
                             );
 
-                            // Scale the influence and add it to the base weight
-                            // The scale factor ensures the expression doesn't dominate initialization completely
-                            float influenceScale = 0.1f; // Small influence during initialization
+                            float influenceScale = 0.1f * proliferationInstance; // Scale influence by proliferation
                             weights[i, j] = baseWeight + expressionInfluence * influenceScale;
                         }
                     }
 
-                    // Enhance the "outermost vertices" (corners) to emphasize the boundary condition
-                    float cornerBoost = 1.5f; // Factor to multiply corner weights by
+                    // VERTEX ENHANCEMENT: Boost corner weights (outermost vertices) based on proliferation
+                    float cornerBoost = 1.5f + (proliferationInstance - 1) * 0.2f; // Increase boost with proliferation
                     if (inputDim > 0 && outputDim > 0)
                     {
-                        weights[0, 0] *= cornerBoost;                   // Top-left
-                        weights[0, outputDim - 1] *= cornerBoost;        // Top-right
-                        weights[inputDim - 1, 0] *= cornerBoost;         // Bottom-left
-                        weights[inputDim - 1, outputDim - 1] *= cornerBoost; // Bottom-right (outermost conceptual vertex)
+                        weights[0, 0] *= cornerBoost;
+                        weights[0, outputDim - 1] *= cornerBoost;
+                        weights[inputDim - 1, 0] *= cornerBoost;
+                        weights[inputDim - 1, outputDim - 1] *= cornerBoost;
                     }
-
 
                     return weights;
                 }
@@ -1651,24 +1976,17 @@ namespace Agentic_Mod
                 /// </summary>
                 System.Numerics.Vector3 CalculateBasisVector(System.Numerics.Vector3[] coordinates, int dimension)
                 {
-                    if (coordinates == null || coordinates.Length == 0 || dimension < 0 || dimension > 2) // Added null/empty/dimension checks
+                    if (coordinates == null || coordinates.Length == 0 || dimension < 0 || dimension > 2)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateBasisVector. Returning zero vector.");
                         return System.Numerics.Vector3.Zero;
                     }
 
-                    // Start with a zero vector
                     System.Numerics.Vector3 basis = System.Numerics.Vector3.Zero;
 
-                    // For each coordinate, extract the component from the specified dimension
-                    // and use it to weight the contribution of that coordinate to the basis vector
                     foreach (var coord in coordinates)
                     {
-                        // System.Numerics.Vector3 is a struct, so no null check needed for 'coord' itself after array check
-                        // Get the component value for the specified dimension
                         float component = dimension == 0 ? coord.X : (dimension == 1 ? coord.Y : coord.Z);
-
-                        // Add the weighted coordinate to the basis vector
                         basis += new System.Numerics.Vector3(
                             coord.X * component,
                             coord.Y * component,
@@ -1676,11 +1994,10 @@ namespace Agentic_Mod
                         );
                     }
 
-                    // Normalize the basis vector to unit length
-                    float magnitude = basis.Length(); // System.Numerics.Vector3.Length()
-                    if (magnitude > 1e-6f) // Use tolerance
+                    float magnitude = basis.Length();
+                    if (magnitude > 1e-6f)
                     {
-                        basis = System.Numerics.Vector3.Divide(basis, magnitude); // System.Numerics.Vector3.Divide
+                        basis = System.Numerics.Vector3.Divide(basis, magnitude);
                     }
 
                     return basis;
@@ -1688,39 +2005,32 @@ namespace Agentic_Mod
 
                 /// <summary>
                 /// Calculates coefficients that represent how the curvature varies in the sample space.
+                /// These coefficients will be modified by the proliferated expression.
                 /// </summary>
                 float[] CalculateCurvatureCoefficients(System.Numerics.Vector3[] coordinates, System.Numerics.Vector3[] values)
                 {
                     if (coordinates == null || values == null || coordinates.Length == 0 || coordinates.Length != values.Length)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateCurvatureCoefficients. Returning zero coefficients.");
-                        return new float[9]; // Return zero array if input is invalid
+                        return new float[9];
                     }
 
-
-                    // We'll use 9 coefficients to represent the curvature in 3D space
                     float[] coefficients = new float[9];
 
-                    // For each coordinate-value pair
                     for (int i = 0; i < coordinates.Length; i++)
                     {
                         System.Numerics.Vector3 coord = coordinates[i];
                         System.Numerics.Vector3 value = values[i];
 
-                        // Calculate the squared components of the coordinate
                         float x2 = coord.X * coord.X;
                         float y2 = coord.Y * coord.Y;
                         float z2 = coord.Z * coord.Z;
-
-                        // Calculate the cross-components
                         float xy = coord.X * coord.Y;
                         float xz = coord.X * coord.Z;
                         float yz = coord.Y * coord.Z;
 
-                        // Calculate the dot product of coordinate and value
-                        float dot = System.Numerics.Vector3.Dot(coord, value); // System.Numerics.Vector3.Dot
+                        float dot = System.Numerics.Vector3.Dot(coord, value);
 
-                        // Update the coefficients based on this sample
                         coefficients[0] += x2 * dot; // xx component
                         coefficients[1] += y2 * dot; // yy component
                         coefficients[2] += z2 * dot; // zz component
@@ -1732,15 +2042,13 @@ namespace Agentic_Mod
                         coefficients[8] += y2 * z2 * dot; // yyzz component (higher order)
                     }
 
-                    // Normalize the coefficients by the number of samples
-                    if (coordinates.Length > 0) // Avoid division by zero
+                    if (coordinates.Length > 0)
                     {
                         for (int i = 0; i < coefficients.Length; i++)
                         {
                             coefficients[i] /= coordinates.Length;
                         }
                     }
-
 
                     return coefficients;
                 }
@@ -1753,11 +2061,9 @@ namespace Agentic_Mod
                     if (coefficients == null || coefficients.Length < 6)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateEigenvalues. Returning default eigenvalues.");
-                        return new float[] { 1.0f, 1.0f, 1.0f }; // Return default values
+                        return new float[] { 1.0f, 1.0f, 1.0f };
                     }
 
-
-                    // Construct a simplified 3x3 matrix from the first 6 coefficients
                     float[,] matrix = new float[3, 3];
                     matrix[0, 0] = coefficients[0]; // xx
                     matrix[1, 1] = coefficients[1]; // yy
@@ -1766,19 +2072,15 @@ namespace Agentic_Mod
                     matrix[0, 2] = matrix[2, 0] = coefficients[4]; // xz
                     matrix[1, 2] = matrix[2, 1] = coefficients[5]; // yz
 
-                    // Compute the trace (sum of diagonal elements)
                     float trace = matrix[0, 0] + matrix[1, 1] + matrix[2, 2];
-
-                    // Compute the determinant
                     float det = matrix[0, 0] * (matrix[1, 1] * matrix[2, 2] - matrix[1, 2] * matrix[2, 1]) -
                                 matrix[0, 1] * (matrix[1, 0] * matrix[2, 2] - matrix[1, 2] * matrix[2, 0]) +
                                 matrix[0, 2] * (matrix[1, 0] * matrix[2, 1] - matrix[1, 1] * matrix[2, 0]);
 
-                    // Use a simplified approach to estimate eigenvalues
                     float[] eigenvalues = new float[3];
-                    eigenvalues[0] = trace / 3.0f + 0.1f * det; // Approximation for first eigenvalue
-                    eigenvalues[1] = trace / 3.0f;              // Approximation for second eigenvalue
-                    eigenvalues[2] = trace / 3.0f - 0.1f * det; // Approximation for third eigenvalue
+                    eigenvalues[0] = trace / 3.0f + 0.1f * det;
+                    eigenvalues[1] = trace / 3.0f;
+                    eigenvalues[2] = trace / 3.0f - 0.1f * det;
 
                     return eigenvalues;
                 }
@@ -1791,106 +2093,79 @@ namespace Agentic_Mod
                     if (eigenvalues == null || eigenvalues.Length == 0)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Eigenvalues array is null or empty for weights. Returning default weights.");
-                        return new float[] { 1.0f }; // Return a default weight
+                        return new float[] { 1.0f };
                     }
 
-                    // Create weights based on eigenvalues
                     float[] weights = new float[eigenvalues.Length];
-
-                    // Normalize eigenvalues to create weights that sum to something meaningful
-                    // Use absolute values, and shift/scale to ensure positive weights
                     float sumAbsEigenvalues = 0.0f;
+
                     for (int i = 0; i < eigenvalues.Length; i++)
                     {
-                        // Use absolute values to ensure positive weights
                         weights[i] = Math.Abs(eigenvalues[i]);
                         sumAbsEigenvalues += weights[i];
                     }
 
-                    // Normalize and ensure minimum weight, or use a relative weighting
-                    if (sumAbsEigenvalues > 1e-6f) // Use tolerance
+                    if (sumAbsEigenvalues > 1e-6f)
                     {
-                        // Use a relative weighting: higher absolute eigenvalue means higher weight
                         float maxAbsEigenvalue = weights.Max();
                         if (maxAbsEigenvalue > 1e-6f)
                         {
                             for (int i = 0; i < weights.Length; i++)
                             {
-                                // Scale weights relative to max, with a minimum base value
-                                weights[i] = 0.5f + 0.5f * (weights[i] / maxAbsEigenvalue); // Weights between 0.5 and 1.0
+                                weights[i] = 0.5f + 0.5f * (weights[i] / maxAbsEigenvalue);
                             }
                         }
                         else
                         {
-                            // Fallback if max is zero (all eigenvalues are zero)
                             for (int i = 0; i < weights.Length; i++)
                             {
-                                weights[i] = 1.0f; // Equal weights
+                                weights[i] = 1.0f;
                             }
                         }
 
-                        // If we only need a single scalar weight for the overall loss
-                        // For the loss function structure `tf.reduce_mean(tf.multiply(rawLoss, curvatureWeightTensor))`
-                        // where rawLoss is (batch_size, 1), curvatureWeightTensor should also be (batch_size, 1) or (1, 1).
-                        // Let's average the calculated weights to get a single scalar weight for the batch loss.
-                        return new float[] { weights.Average() }; // Return average weight as a scalar array
+                        return new float[] { weights.Average() };
                     }
                     else
                     {
-                        // Default equal weights if eigenvalues sum to zero (all eigenvalues are zero or near zero)
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Sum of absolute eigenvalues is zero. Returning default weights.");
-                        return new float[] { 1.0f }; // Return a default scalar weight
+                        return new float[] { 1.0f };
                     }
                 }
 
-
                 /// <summary>
+                /// STEP 6: VERTEX MASK CALCULATION WITH PROLIFERATION
                 /// Calculates a mask that identifies the outermost vertices in a tensor.
-                /// This version is a simplified conceptual mask for a 2D tensor.
+                /// This is where the proliferated expression gets applied to the vertex structure.
+                /// The mask will be used during training to focus the proliferated formula on key vertices.
                 /// </summary>
-                Tensor CalculateOutermostVertexMask(Tensor input)
+                Tensor CalculateOutermostVertexMask(Tensor input, int proliferationInstance = 1)
                 {
                     if (input == null || input.shape.rank < 2)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper: CalculateOutermostVertexMask received null or insufficient rank tensor. Returning default mask.");
-                        return tf.ones_like(input); // Return identity mask
+                        return tf.ones_like(input);
                     }
-                    // Get the shape of the input tensor
-                    var shape = tf.shape(input); // Shape is (batch_size, features)
+
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Calculating vertex mask with proliferation instance: {proliferationInstance}");
+
+                    var shape = tf.shape(input);
                     var batchSize = tf.slice(shape, begin: new int[] { 0 }, size: new int[] { 1 });
                     var features = tf.slice(shape, begin: new int[] { 1 }, size: new int[] { 1 });
 
-                    // Create a feature-wise weight that emphasizes the ends (conceptual vertices)
-                    var featureIndices = tf.cast(tf.range(0, features), dtype: tf.float32); // Indices 0 to features-1
-                    var normalizedIndices = tf.divide(featureIndices, tf.cast(features - 1, tf.float32)); // Normalize to 0-1
+                    var featureIndices = tf.cast(tf.range(0, features), dtype: tf.float32);
+                    var normalizedIndices = tf.divide(featureIndices, tf.cast(features - 1, tf.float32));
 
-                    // Use a pattern that is high at 0 and 1, low in the middle
-                    // abs(normalizedIndices - 0.5) gives values from 0.5 to 0 then back to 0.5
-                    // Multiplying by 2 gives values from 1.0 to 0 then back to 1.0
-                    var featureMask = tf.multiply(tf.abs(normalizedIndices - 0.5f), 2.0f, name: "feature_vertex_mask"); // Shape (features,)
+                    // PROLIFERATION EFFECT ON VERTEX PATTERN: Scale the vertex emphasis by proliferation instance
+                    float proliferationScale = 2.0f * proliferationInstance; // Base scale * proliferation
+                    var featureMask = tf.multiply(tf.abs(normalizedIndices - 0.5f), proliferationScale, name: "proliferated_vertex_mask");
 
-
-                    // Expand the mask to match the batch dimension (batch_size, features)
                     var batchSizeInt = tf.cast(batchSize, tf.int32);
-                    // Tile requires an array for multiples
-                    var expandedMask = tf.tile(tf.reshape(featureMask, shape: new int[] { 1, -1 }), multiples: tf.concat(new[] { batchSizeInt, tf.constant(new int[] { 1 }) }, axis: 0), name: "expanded_vertex_mask");
+                    var expandedMask = tf.tile(tf.reshape(featureMask, shape: new int[] { 1, -1 }),
+                                             multiples: tf.concat(new[] { batchSizeInt, tf.constant(new int[] { 1 }) }, axis: 0),
+                                             name: "expanded_proliferated_mask");
 
-
-                    // The expression modulator (shape batch_size, 3) needs to interact with this.
-                    // This simple mask concept works better if the expression modulation is applied
-                    // feature-wise or to the weights themselves, as done in GenerateWeightsFromExpression
-                    // and the network structure above.
-                    // For this specific 'CalculateOutermostVertexMask' function called in the TF graph,
-                    // it's conceptual. A direct application could be masking weights or gradients.
-                    // Since the modulation is applied to the hidden layer activation via a gate,
-                    // this specific `CalculateOutermostVertexMask` tensor function is not strictly needed
-                    // for the current graph structure, but kept for conceptual use if a mask was needed.
-
-                    // Returning a simple broadcasted tensor for demonstration, or could return the featureMask.
-                    // Let's return the feature mask expanded to match the input shape for conceptual use.
                     return expandedMask;
                 }
-
 
                 /// <summary>
                 /// Converts a jagged array to a multidimensional array.
@@ -1910,7 +2185,6 @@ namespace Agentic_Mod
 
                     int rows = jaggedArray.Length;
                     int cols = jaggedArray[0].Length;
-
                     float[,] result = new float[rows, cols];
 
                     for (int i = 0; i < rows; i++)
@@ -1918,8 +2192,6 @@ namespace Agentic_Mod
                         if (jaggedArray[i].Length != cols)
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Row {i} in jagged array has inconsistent length ({jaggedArray[i].Length} vs {cols}). Returning partial result.");
-                            // Handle inconsistent rows by padding or skipping, depending on desired behavior.
-                            // Here, we'll just fill the valid portion and leave the rest as default(float) (0.0f).
                             int currentCols = jaggedArray[i].Length;
                             for (int j = 0; j < Math.Min(cols, currentCols); j++)
                             {
@@ -1928,47 +2200,45 @@ namespace Agentic_Mod
                         }
                         else
                         {
-                            System.Buffer.BlockCopy(jaggedArray[i], 0, result, i * cols * sizeof(float), cols * sizeof(float)); // Use System.Buffer
+                            System.Buffer.BlockCopy(jaggedArray[i], 0, result, i * cols * sizeof(float), cols * sizeof(float));
                         }
                     }
 
                     return result;
                 }
 
-
                 /// <summary>
                 /// Extracts a batch from a multidimensional array using indices.
                 /// </summary>
-                float[,] ExtractBatch(float[,] data, int[] batchIndices, int startIdx, int count) // Renamed parameter 'indices' to 'batchIndices'
+                float[,] ExtractBatch(float[,] data, int[] batchIndices, int startIdx, int count)
                 {
-                    if (data == null || batchIndices == null || data.GetLength(0) == 0 || batchIndices.Length == 0) // Added data/indices empty check, used batchIndices
+                    if (data == null || batchIndices == null || data.GetLength(0) == 0 || batchIndices.Length == 0)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid or empty input data/indices for ExtractBatch. Returning empty batch.");
                         return new float[0, data?.GetLength(1) ?? 0];
                     }
-                    if (batchIndices.Length < startIdx + count || data.GetLength(0) < batchIndices.Max() + 1) // Ensure all indices in batchIndices are valid for data
+                    if (batchIndices.Length < startIdx + count || data.GetLength(0) < batchIndices.Max() + 1)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Indices or data size mismatch for ExtractBatch (data rows: {data.GetLength(0)}, indices length: {batchIndices.Length}, startIdx: {startIdx}, count: {count}, max index: {batchIndices.Max()}). Returning empty batch.");
                         return new float[0, data.GetLength(1)];
                     }
 
-                    if (count <= 0) return new float[0, data.GetLength(1)]; // Return empty batch if count is non-positive
+                    if (count <= 0) return new float[0, data.GetLength(1)];
 
                     int cols = data.GetLength(1);
                     float[,] batch = new float[count, cols];
 
                     for (int i = 0; i < count; i++)
                     {
-                        int srcIdx = batchIndices[startIdx + i]; // Used batchIndices
+                        int srcIdx = batchIndices[startIdx + i];
                         if (srcIdx < 0 || srcIdx >= data.GetLength(0))
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error: Invalid index {srcIdx} in ExtractBatch indices array at batch index {i}. Stopping batch extraction.");
-                            // Return partial batch extracted so far
                             var partialBatch = new float[i, cols];
-                            System.Buffer.BlockCopy(batch, 0, partialBatch, 0, i * cols * sizeof(float)); // Use System.Buffer
+                            System.Buffer.BlockCopy(batch, 0, partialBatch, 0, i * cols * sizeof(float));
                             return partialBatch;
                         }
-                        System.Buffer.BlockCopy(data, srcIdx * cols * sizeof(float), batch, i * cols * sizeof(float), cols * sizeof(float)); // Use System.Buffer
+                        System.Buffer.BlockCopy(data, srcIdx * cols * sizeof(float), batch, i * cols * sizeof(float), cols * sizeof(float));
                     }
 
                     return batch;
@@ -1977,7 +2247,7 @@ namespace Agentic_Mod
                 /// <summary>
                 /// Shuffles an array randomly.
                 /// </summary>
-                void ShuffleArray(int[] shuffleIndices) // Renamed parameter 'array' to 'shuffleIndices'
+                void ShuffleArray(int[] shuffleIndices)
                 {
                     if (shuffleIndices == null) return;
                     Random rng = new Random();
@@ -1998,8 +2268,6 @@ namespace Agentic_Mod
                 /// </summary>
                 string SerializeMetadata(Dictionary<string, object> metadata)
                 {
-                    // In a real implementation, use a proper JSON serializer (e.g., System.Text.Json or Newtonsoft.Json)
-                    // This is a simplified version for the example
                     if (metadata == null) return "{}";
 
                     StringBuilder sb = new StringBuilder();
@@ -2008,16 +2276,12 @@ namespace Agentic_Mod
                     bool first = true;
                     foreach (var entry in metadata)
                     {
-                        if (!first)
-                        {
-                            sb.Append(",");
-                        }
+                        if (!first) sb.Append(",");
 
                         sb.Append($"\"{entry.Key}\":");
 
                         if (entry.Value is string strValue)
                         {
-                            // Escape quotes in string values
                             sb.Append($"\"{strValue.Replace("\"", "\\\"")}\"");
                         }
                         else if (entry.Value is float[] floatArray)
@@ -2026,39 +2290,39 @@ namespace Agentic_Mod
                             sb.Append(string.Join(",", floatArray.Select(f => f.ToString("F6"))));
                             sb.Append("]");
                         }
-                        else if (entry.Value is double[] doubleArray) // Handle double arrays too
+                        else if (entry.Value is double[] doubleArray)
                         {
                             sb.Append("[");
                             sb.Append(string.Join(",", doubleArray.Select(d => d.ToString("F6"))));
                             sb.Append("]");
                         }
-                        else if (entry.Value is int[] intArray) // Handle int arrays too
+                        else if (entry.Value is int[] intArray)
                         {
                             sb.Append("[");
                             sb.Append(string.Join(",", intArray));
                             sb.Append("]");
                         }
-                        else if (entry.Value is System.Numerics.Vector3 vector) // Handle Vector3
+                        else if (entry.Value is System.Numerics.Vector3 vector)
                         {
                             sb.Append($"[\"{vector.X:F6}\",\"{vector.Y:F6}\",\"{vector.Z:F6}\"]");
                         }
                         else if (entry.Value is float floatValue)
                         {
-                            sb.Append(floatValue.ToString("F6")); // Format float
+                            sb.Append(floatValue.ToString("F6"));
                         }
                         else if (entry.Value is double doubleValue)
                         {
-                            sb.Append(doubleValue.ToString("F6")); // Format double
+                            sb.Append(doubleValue.ToString("F6"));
                         }
                         else if (entry.Value is int intValue)
                         {
-                            sb.Append(intValue.ToString()); // Format int
+                            sb.Append(intValue.ToString());
                         }
-                        else if (entry.Value is bool boolValue) // Handle bool values
+                        else if (entry.Value is bool boolValue)
                         {
-                            sb.Append(boolValue.ToString().ToLower()); // Format bool to lowercase
+                            sb.Append(boolValue.ToString().ToLower());
                         }
-                        else if (entry.Value is float[,] float2DArray) // Handle 2D float arrays (predictions)
+                        else if (entry.Value is float[,] float2DArray)
                         {
                             sb.Append("[");
                             for (int i = 0; i < float2DArray.GetLength(0); i++)
@@ -2074,31 +2338,27 @@ namespace Agentic_Mod
                             }
                             sb.Append("]");
                         }
-                        else if (entry.Value != null) // Catch other types, use ToString()
+                        else if (entry.Value != null)
                         {
-                            // Attempt to serialize other value types, handle potential issues
                             try
                             {
                                 string valueStr = entry.Value.ToString();
-                                // Basic check to see if it looks like a simple value (number, bool)
-                                // or if it needs quoting (string)
                                 if (float.TryParse(valueStr, out _) || double.TryParse(valueStr, out _) || bool.TryParse(valueStr, out _))
                                 {
                                     sb.Append(valueStr);
                                 }
                                 else
                                 {
-                                    sb.Append($"\"{valueStr.Replace("\"", "\\\"")}\""); // Quote as string with escaping
+                                    sb.Append($"\"{valueStr.Replace("\"", "\\\"")}\"");
                                 }
-
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Failed to serialize metadata value for key '{entry.Key}': {ex.Message}");
-                                sb.Append("\"SerializationError\""); // Indicate serialization failure
+                                sb.Append("\"SerializationError\"");
                             }
                         }
-                        else // Value is null
+                        else
                         {
                             sb.Append("null");
                         }
@@ -2110,15 +2370,34 @@ namespace Agentic_Mod
                     return sb.ToString();
                 }
 
+                // Helper function to serialize float arrays
+                byte[] SerializeFloatArray(float[] array)
+                {
+                    if (array == null) return new byte[0];
+                    byte[] bytes = new byte[array.Length * sizeof(float)];
+                    System.Buffer.BlockCopy(array, 0, bytes, 0, bytes.Length);
+                    return bytes;
+                }
 
-                // Helper function to process an array with K-means clustering
+                // Helper function to deserialize float arrays
+                float[] DeserializeFloatArray(byte[] bytes)
+                {
+                    if (bytes == null || bytes.Length == 0) return new float[0];
+                    float[] array = new float[bytes.Length / sizeof(float)];
+                    System.Buffer.BlockCopy(bytes, 0, array, 0, bytes.Length);
+                    return array;
+                }
+
+                // Helper function to process an array with K-means clustering - SEPARATED INPUT DATA SECTION
                 void ProcessArrayWithKMeans(double[] dataArray, string arrayName, ConcurrentDictionary<string, object> resultsStore)
                 {
-                    // Step H.1: Validate input data for clustering
-                    if (dataArray == null || dataArray.Length < 3 || dataArray.All(d => d == dataArray[0])) // Added null check and check for all same values
+                    // === CLUSTER INPUT DATA SECTION ===
+                    // This data will be dynamically generated in future iterations
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === CLUSTER INPUT DATA PROCESSING: {arrayName} ===");
+
+                    if (dataArray == null || dataArray.Length < 3 || dataArray.All(d => d == dataArray[0]))
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Not enough distinct data points in {arrayName} for K-means clustering or data is constant. Skipping.");
-                        // Store default/empty results to avoid downstream errors
                         resultsStore[$"{arrayName}_Category"] = "InsufficientData";
                         resultsStore[$"{arrayName}_NormalizedValue"] = 0.0;
                         resultsStore[$"{arrayName}_NormalizedX"] = 0.0;
@@ -2129,73 +2408,55 @@ namespace Agentic_Mod
 
                     try
                     {
-                        // Step H.2: Convert 1D array to 2D array format required by Accord
+                        // Convert 1D array to 2D array format required by Accord
                         double[][] points = new double[dataArray.Length][];
                         for (int i = 0; i < dataArray.Length; i++)
                         {
                             points[i] = new double[] { dataArray[i] };
                         }
 
-                        // Step H.3: Initialize K-means algorithm with k=3 clusters
-                        // Ensure k is not greater than the number of data points
+                        // Initialize K-means algorithm with k=3 clusters
                         int k = Math.Min(3, points.Length);
-                        if (k < 1) k = 1; // Ensure k is at least 1
+                        if (k < 1) k = 1;
 
                         var kmeans = new Accord.MachineLearning.KMeans(k);
-
-                        // Step H.4: Configure distance metric for clustering
                         kmeans.Distance = new Accord.Math.Distances.SquareEuclidean();
 
-                        // Step H.5: Compute and retrieve the centroids
                         try
                         {
                             var clusters = kmeans.Learn(points);
                             double[] centroids = clusters.Centroids.Select(c => c[0]).ToArray();
 
-                            // Step H.6: Sort centroids in descending order and select top 3 (or fewer if k is less than 3)
                             Array.Sort(centroids);
                             Array.Reverse(centroids);
                             int numCentroids = Math.Min(3, centroids.Length);
 
-                            // Pad centroids if less than 3 for consistent XYZ calculation
                             double[] paddedCentroids = new double[3];
                             for (int i = 0; i < numCentroids; i++) paddedCentroids[i] = centroids[i];
 
-
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] K-means centroids for {arrayName}: [{string.Join(", ", centroids.Take(numCentroids).Select(c => c.ToString("F4")))}]");
 
-
-                            // Step H.8: Calculate the central point (average of centroids)
-                            double centralPoint = centroids.Take(numCentroids).DefaultIfEmpty(0).Average(); // Use DefaultIfEmpty(0) for safety
+                            double centralPoint = centroids.Take(numCentroids).DefaultIfEmpty(0).Average();
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Central point for {arrayName}: {centralPoint}");
 
-                            // Step H.9: Normalize the central point
-                            double maxAbsCentroid = centroids.Take(numCentroids).Select(Math.Abs).DefaultIfEmpty(0).Max(); // Use DefaultIfEmpty(0) for safety
-                            double normalizedValue = maxAbsCentroid > 1e-6 ? centralPoint / maxAbsCentroid : 0; // Use tolerance for comparison
+                            double maxAbsCentroid = centroids.Take(numCentroids).Select(Math.Abs).DefaultIfEmpty(0).Max();
+                            double normalizedValue = maxAbsCentroid > 1e-6 ? centralPoint / maxAbsCentroid : 0;
 
-                            // Step H.10: Categorize the normalized value
                             string category;
-                            if (normalizedValue < -0.33)
-                                category = "Negative High";
-                            else if (normalizedValue < 0)
-                                category = "Negative Low";
-                            else if (normalizedValue < 0.33)
-                                category = "Positive Low";
-                            else if (normalizedValue < 0.66)
-                                category = "Positive Medium";
-                            else
-                                category = "Positive High";
+                            if (normalizedValue < -0.33) category = "Negative High";
+                            else if (normalizedValue < 0) category = "Negative Low";
+                            else if (normalizedValue < 0.33) category = "Positive Low";
+                            else if (normalizedValue < 0.66) category = "Positive Medium";
+                            else category = "Positive High";
 
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized value for {arrayName}: {normalizedValue:F4}, Category: {category}");
 
-                            // Step H.11: Calculate the XYZ coordinates using the padded top 3 centroids
                             double x = paddedCentroids[0];
                             double y = paddedCentroids[1];
                             double z = paddedCentroids[2];
 
-                            // Step H.12: Normalize XYZ coordinates relative to 0,0,0 origin
                             double maxAbsCoordinate = Math.Max(Math.Max(Math.Abs(x), Math.Abs(y)), Math.Abs(z));
-                            if (maxAbsCoordinate > 1e-6) // Use tolerance for comparison
+                            if (maxAbsCoordinate > 1e-6)
                             {
                                 x /= maxAbsCoordinate;
                                 y /= maxAbsCoordinate;
@@ -2204,18 +2465,15 @@ namespace Agentic_Mod
 
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized XYZ coordinates for {arrayName}: ({x:F4}, {y:F4}, {z:F4})");
 
-                            // Step H.13: Store the results in resultsStore
                             resultsStore[$"{arrayName}_Category"] = category;
                             resultsStore[$"{arrayName}_NormalizedValue"] = normalizedValue;
                             resultsStore[$"{arrayName}_NormalizedX"] = x;
                             resultsStore[$"{arrayName}_NormalizedY"] = y;
                             resultsStore[$"{arrayName}_NormalizedZ"] = z;
-
                         }
                         catch (Exception learnEx)
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during K-means Learn for {arrayName}: {learnEx.Message}");
-                            // Store error indicators if learning failed
                             resultsStore[$"{arrayName}_Category"] = "ClusteringLearnError";
                             resultsStore[$"{arrayName}_NormalizedValue"] = 0.0;
                             resultsStore[$"{arrayName}_NormalizedX"] = 0.0;
@@ -2226,7 +2484,6 @@ namespace Agentic_Mod
                     catch (Exception ex)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error processing K-means for {arrayName}: {ex.Message}");
-                        // Store error indicators
                         resultsStore[$"{arrayName}_Category"] = "ProcessingError";
                         resultsStore[$"{arrayName}_NormalizedValue"] = 0.0;
                         resultsStore[$"{arrayName}_NormalizedX"] = 0.0;
@@ -2238,36 +2495,30 @@ namespace Agentic_Mod
                 // Helper function to calculate trajectory stability
                 double CalculateTrajectoryStability(List<double[]> trajectoryPoints)
                 {
-                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) // Added null check
-                        return 0.5; // Default stability for insufficient points
+                    if (trajectoryPoints == null || trajectoryPoints.Count < 2)
+                        return 0.5;
 
-                    // Calculate consistency of direction along trajectory
                     double averageAngleChange = 0;
-                    int angleCount = 0; // Track how many angle calculations were successful
+                    int angleCount = 0;
 
                     for (int i = 1; i < trajectoryPoints.Count - 1; i++)
                     {
-                        // Added null/length checks for points
                         if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < 3 ||
                            trajectoryPoints[i] == null || trajectoryPoints[i].Length < 3 ||
                            trajectoryPoints[i + 1] == null || trajectoryPoints[i + 1].Length < 3)
                         {
-                            continue; // Skip calculation if points are invalid
+                            continue;
                         }
-
 
                         double[] prevVector = new double[3];
                         double[] nextVector = new double[3];
 
-                        // Get vector from previous to current point
                         for (int j = 0; j < 3; j++)
                             prevVector[j] = trajectoryPoints[i][j] - trajectoryPoints[i - 1][j];
 
-                        // Get vector from current to next point
                         for (int j = 0; j < 3; j++)
                             nextVector[j] = trajectoryPoints[i + 1][j] - trajectoryPoints[i][j];
 
-                        // Calculate angle between vectors (dot product / product of magnitudes)
                         double dotProduct = 0;
                         double prevMagSq = 0;
                         double nextMagSq = 0;
@@ -2282,11 +2533,9 @@ namespace Agentic_Mod
                         double prevMag = Math.Sqrt(prevMagSq);
                         double nextMag = Math.Sqrt(nextMagSq);
 
-
-                        if (prevMag > 1e-9 && nextMag > 1e-9) // Use tolerance for non-zero magnitude
+                        if (prevMag > 1e-9 && nextMag > 1e-9)
                         {
                             double cosAngle = dotProduct / (prevMag * nextMag);
-                            // Clamp to valid range for acos
                             cosAngle = Math.Max(-1.0, Math.Min(1.0, cosAngle));
                             double angle = Math.Acos(cosAngle);
                             averageAngleChange += angle;
@@ -2295,12 +2544,10 @@ namespace Agentic_Mod
                     }
 
                     if (angleCount > 0)
-                        averageAngleChange /= angleCount; // Divide by count of successful angle calculations
+                        averageAngleChange /= angleCount;
                     else
-                        return 0.5; // Default if no angles could be calculated
+                        return 0.5;
 
-                    // Convert to stability score (0-1): lower angle changes = more stable
-                    // Map angle [0, PI] to stability [1, 0]
                     double stabilityScore = 1.0 - (averageAngleChange / Math.PI);
                     return stabilityScore;
                 }
@@ -2308,76 +2555,62 @@ namespace Agentic_Mod
                 // Helper function to calculate plane intersection point
                 double[] CalculatePlaneIntersection(List<double[]> trajectoryPoints, int planeAxis, double tolerance)
                 {
-                    // Need at least two points to find an intersection
-                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) // Added null check
+                    if (trajectoryPoints == null || trajectoryPoints.Count < 2)
                         return null;
 
-                    // Find the first pair of points that cross the plane (considering tolerance)
                     for (int i = 1; i < trajectoryPoints.Count; i++)
                     {
-                        // Added null/length checks for points
                         if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < Math.Max(3, planeAxis + 1) ||
                            trajectoryPoints[i] == null || trajectoryPoints[i].Length < Math.Max(3, planeAxis + 1))
                         {
-                            continue; // Skip if points are invalid for the calculation
+                            continue;
                         }
 
                         double v1 = trajectoryPoints[i - 1][planeAxis];
                         double v2 = trajectoryPoints[i][planeAxis];
 
-                        // Check if points are on opposite sides of the plane
-                        // Use tolerance: one point is >= -tol and the other is <= +tol
-                        // This handles cases where a point might be exactly zero or very close
                         bool crossedZero = (v1 >= -tolerance && v2 <= tolerance) || (v1 <= tolerance && v2 >= -tolerance);
 
-                        if (crossedZero && !((v1 >= -tolerance && v1 <= tolerance) && (v2 >= -tolerance && v2 <= tolerance))) // Ensure they aren't both near zero
+                        if (crossedZero && !((v1 >= -tolerance && v1 <= tolerance) && (v2 >= -tolerance && v2 <= tolerance)))
                         {
-                            // Handle the case where one point is exactly zero or very close
                             if (Math.Abs(v1) < tolerance) return (double[])trajectoryPoints[i - 1].Clone();
                             if (Math.Abs(v2) < tolerance) return (double[])trajectoryPoints[i].Clone();
 
-
-                            // Calculate the interpolation factor (t) where the plane is crossed
-                            // Use absolute values for interpolation based on distance from zero
                             double t = Math.Abs(v1) / (Math.Abs(v1) + Math.Abs(v2));
 
-                            // Interpolate the exact intersection point
                             double[] intersection = new double[3];
                             for (int j = 0; j < 3; j++)
                             {
-                                // Added bounds check for j
                                 if (j < trajectoryPoints[i - 1].Length && j < trajectoryPoints[i].Length)
                                 {
                                     intersection[j] = trajectoryPoints[i - 1][j] * (1 - t) + trajectoryPoints[i][j] * t;
                                 }
                                 else
                                 {
-                                    intersection[j] = 0; // Default to 0 if coordinate doesn't exist
+                                    intersection[j] = 0;
                                 }
                             }
 
-                            // Explicitly set the plane axis coordinate to zero for precision
                             if (planeAxis >= 0 && planeAxis < intersection.Length)
                             {
                                 intersection[planeAxis] = 0.0;
                             }
 
-
                             return intersection;
                         }
                     }
 
-                    return null; // No intersection found
+                    return null;
                 }
 
                 // Helper functions to count negative points using tolerance
                 int CountNegativePoints(List<double[]> points, int axis, double tolerance)
                 {
-                    if (points == null) return 0; // Added null check
+                    if (points == null) return 0;
                     int count = 0;
                     foreach (var point in points)
                     {
-                        if (point != null && point.Length > axis && point[axis] < -tolerance) // Added null/length check
+                        if (point != null && point.Length > axis && point[axis] < -tolerance)
                             count++;
                     }
                     return count;
@@ -2385,112 +2618,99 @@ namespace Agentic_Mod
 
                 int CountNegativeBothPoints(List<double[]> points, double tolerance)
                 {
-                    if (points == null) return 0; // Added null check
+                    if (points == null) return 0;
                     int count = 0;
                     foreach (var point in points)
                     {
-                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) // Added null/length check
+                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance)
                             count++;
                     }
                     return count;
                 }
-                // Find positive and negative coordinate pairs for both trajectories
-                // Use tolerance for checking signs
+
                 double[] FindPositiveCoordinate(List<double[]> points, double tolerance)
                 {
-                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 }; // Added null/empty check
+                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 };
 
                     foreach (var point in points)
                     {
-                        if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance) // Added null/length check
+                        if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance)
                             return (double[])point.Clone();
                     }
-                    // Default to first point if no suitable point found
-                    int firstIndex = points.Count > 0 ? 0 : -1;
-                    if (firstIndex != -1 && points[firstIndex] != null && points[firstIndex].Length >= 3) return (double[])points[firstIndex].Clone(); // Return clone if valid
-                    return new double[] { 0, 0, 0 }; // Default if first point invalid or list empty
 
+                    int firstIndex = points.Count > 0 ? 0 : -1;
+                    if (firstIndex != -1 && points[firstIndex] != null && points[firstIndex].Length >= 3)
+                        return (double[])points[firstIndex].Clone();
+                    return new double[] { 0, 0, 0 };
                 }
 
                 double[] FindNegativeCoordinate(List<double[]> points, double tolerance)
                 {
-                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 }; // Added null/empty check
+                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 };
 
                     foreach (var point in points)
                     {
-                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) // Added null/length check
+                        if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance)
                             return (double[])point.Clone();
                     }
 
-                    // Default to last point if no suitable point found
                     int lastIndex = points.Count > 0 ? points.Count - 1 : 0;
-                    if (lastIndex >= 0 && points[lastIndex] != null && points[lastIndex].Length >= 3) return (double[])points[lastIndex].Clone(); // Return clone if valid
-                    return new double[] { 0, 0, 0 }; // Default if last point invalid or list empty
+                    if (lastIndex >= 0 && points[lastIndex] != null && points[lastIndex].Length >= 3)
+                        return (double[])points[lastIndex].Clone();
+                    return new double[] { 0, 0, 0 };
                 }
 
-                // Calculate velocities based on trajectory and magnitude
                 double CalculateVelocity(double[] trajectory, double magnitude)
                 {
-                    // Velocity is magnitude scaled by trajectory length (which should be 1 if normalized)
-                    // This definition might be simplified; perhaps just use magnitude directly?
-                    // Let's use magnitude as a simpler measure of velocity
                     return magnitude;
                 }
-
-
 
                 //==========================================================================
                 // Workflow Coordination
                 //==========================================================================
-                // This function coordinates the sequential execution of the eight processing stages.
-                string ExecuteProductionWorkflow(CoreMlOutcomeRecord record, int custId, Tensorflow.Session session_param_unused) // session param is now unused here
+                string ExecuteProductionWorkflow(CoreMlOutcomeRecord record, int custId, Tensorflow.Session session_param_unused)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Starting multi-stage workflow for customer {custId}.");
 
                     // Step 1: Begin Data Acquisition and Initial Feature Analysis
                     string analysisResult = Stage1_DataAcquisitionAndAnalysis(record, custId);
-                    unitResultsStore["DataAcquisitionResult"] = analysisResult; // Use more general key
+                    unitResultsStore["DataAcquisitionResult"] = analysisResult;
 
                     // Step 2: Begin Feature Tensor Generation and Trajectory Mapping
                     string tensorMappingResult = Stage2_FeatureTensorAndMapping(analysisResult, custId);
-                    unitResultsStore["FeatureTensorMappingResult"] = tensorMappingResult; // Use more general key
+                    unitResultsStore["FeatureTensorMappingResult"] = tensorMappingResult;
 
                     // Step 3: Begin Processed Feature Definition Creation
-                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition(tensorMappingResult, custId); // Removed session from params
-                    unitResultsStore["ProcessedFeatureResult"] = processedFeatureResult; // Use more general key
+                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition(tensorMappingResult, custId);
+                    unitResultsStore["ProcessedFeatureResult"] = processedFeatureResult;
 
                     // Step 4: Begin Feature Quality Assessment
                     string qualityAssessmentResult = Stage4_FeatureQualityAssessment(processedFeatureResult, custId);
-                    unitResultsStore["QualityAssessmentResult"] = qualityAssessmentResult; // Use more general key
+                    unitResultsStore["QualityAssessmentResult"] = qualityAssessmentResult;
 
                     // Step 5: Begin Combined Feature Evaluation
                     float combinedEvaluationScore = Stage5_CombinedFeatureEvaluation(qualityAssessmentResult, custId);
-                    unitResultsStore["CombinedEvaluationScore"] = combinedEvaluationScore; // Use more general key
+                    unitResultsStore["CombinedEvaluationScore"] = combinedEvaluationScore;
 
                     // Step 6: Begin Fractal Optimization Analysis
-                    string optimizationAnalysisResult = Stage6_FractalOptimizationAnalysis(qualityAssessmentResult, combinedEvaluationScore, custId); // Pass QA result and evaluation score
-                    unitResultsStore["OptimizationAnalysisResult"] = optimizationAnalysisResult; // Use more general key
+                    string optimizationAnalysisResult = Stage6_FractalOptimizationAnalysis(qualityAssessmentResult, combinedEvaluationScore, custId);
+                    unitResultsStore["OptimizationAnalysisResult"] = optimizationAnalysisResult;
 
                     // Step 7: Begin Tensor Network Training with Curvature Embedding (Includes Actual TF.NET)
-                    // Model A now creates its own session internally if modelASession is used.
-                    // The passed 'session_param_unused' (originally mlSession) is not used for TF ops in Stage7.
+                    // PROLIFERATION OCCURS HERE: During training iterations, the "1+P" expression proliferates
                     string trainingOutcomeResult = Stage7_TensorNetworkTraining(optimizationAnalysisResult, custId, unitResultsStore);
-                    unitResultsStore["TensorNetworkTrainingOutcome"] = trainingOutcomeResult; // Use more general key
+                    unitResultsStore["TensorNetworkTrainingOutcome"] = trainingOutcomeResult;
 
                     // Step 8: Begin Future Performance Projection
-                    string performanceProjectionResult = Stage8_FutureProjection(trainingOutcomeResult, combinedEvaluationScore, custId); // Base projection on training outcome and evaluation score
-                    unitResultsStore["PerformanceProjectionResult"] = performanceProjectionResult; // Use more general key
+                    string performanceProjectionResult = Stage8_FutureProjection(trainingOutcomeResult, combinedEvaluationScore, custId);
+                    unitResultsStore["PerformanceProjectionResult"] = performanceProjectionResult;
 
+                    float finalScore = unitResultsStore.TryGetValue("ProjectedPerformanceScore", out var projectedScoreVal)
+                        ? Convert.ToSingle(projectedScoreVal) : combinedEvaluationScore;
 
-                    // Final workflow result combines key outputs - Use the projected score as the final outcome
-                    float finalScore = unitResultsStore.TryGetValue("ProjectedPerformanceScore", out var projectedScoreVal) // Retrieve the projected score
-                        ? Convert.ToSingle(projectedScoreVal) : combinedEvaluationScore; // Fallback to evaluation score if projection failed or not stored
+                    unitResultsStore["ModelAProcessingOutcome"] = finalScore;
+                    unitResultsStore["A_FinalScore"] = finalScore;
 
-                    // Make sure to store the score with BOTH keys - the unit-specific and the standard key expected by Unit D
-                    unitResultsStore["ModelAProcessingOutcome"] = finalScore; // Standard key for Unit D
-                    unitResultsStore["A_FinalScore"] = finalScore; // Unit-specific key for record keeping
-
-                    // Also store other critical results that Unit D might need with standard keys
                     if (!unitResultsStore.ContainsKey("ModelACombinedParameters") && RuntimeProcessingContext.RetrieveContextValue("model_a_params_combined") is byte[] params_combined)
                     {
                         unitResultsStore["ModelACombinedParameters"] = params_combined;
@@ -2499,7 +2719,7 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Workflow completed for customer {custId} with final score {finalScore:F4}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: ModelAProcessingOutcome stored: {unitResultsStore.ContainsKey("ModelAProcessingOutcome")}");
 
-                    return $"Workflow_Complete_Cust_{custId}_FinalScore_{finalScore:F4}"; // More general return string
+                    return $"Workflow_Complete_Cust_{custId}_FinalScore_{finalScore:F4}";
                 }
 
                 //==========================================================================
@@ -2509,23 +2729,18 @@ namespace Agentic_Mod
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 1 - Acquiring data and analyzing initial features for customer {custId}.");
 
-                    // Step 1.1: Retrieve primary datasets from RuntimeProcessingContext
                     var productInventory = RuntimeProcessingContext.RetrieveContextValue("All_Simulated_Product_Inventory") as List<dynamic>;
                     var serviceOfferings = RuntimeProcessingContext.RetrieveContextValue("All_Simulated_Service_Offerings") as List<dynamic>;
 
-
-                    // Process Product Data if available
                     if (productInventory != null)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 1 - Processing Product Data ({productInventory.Count} items).");
-                        // Step 1.2: Extract product properties into separate arrays for analysis
                         var quantityAvailable = new List<int>();
                         var productMonetaryValue = new List<double>();
                         var productCostContribution = new List<double>();
 
                         foreach (var product in productInventory)
                         {
-                            // FIX: Use dynamic access directly and convert to expected type
                             try
                             {
                                 quantityAvailable.Add(Convert.ToInt32(product.QuantityAvailable));
@@ -2535,22 +2750,17 @@ namespace Agentic_Mod
                             catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException rbEx)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] RuntimeBinder Error accessing product properties: {rbEx.Message}");
-                                // Handle missing properties or invalid types if necessary, e.g., add default values or log specific product info
-                                // For this example, we'll just log and skip this product or use default values added during list initialization
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unexpected Error accessing product properties: {ex.Message}");
-                                // Handle other potential exceptions during conversion
                             }
                         }
 
-                        // Step 1.3: Output extracted product data for diagnostic purposes
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product QuantityAvailable: [{string.Join(", ", quantityAvailable)}]");
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product MonetaryValue: [{string.Join(", ", productMonetaryValue)}]");
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product CostContributionValue: [{string.Join(", ", productCostContribution)}]");
 
-                        // Step 1.4: Process each product property array with K-means clustering for initial categorization
                         ProcessArrayWithKMeans(quantityAvailable.Select(x => (double)x).ToArray(), "Product QuantityAvailable", unitResultsStore);
                         ProcessArrayWithKMeans(productMonetaryValue.ToArray(), "Product MonetaryValue", unitResultsStore);
                         ProcessArrayWithKMeans(productCostContribution.ToArray(), "Product CostContributionValue", unitResultsStore);
@@ -2560,18 +2770,15 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product inventory data not found in RuntimeProcessingContext. Skipping product analysis.");
                     }
 
-                    // Process Service Data if available
                     if (serviceOfferings != null)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 1 - Processing Service Data ({serviceOfferings.Count} items).");
-                        // Step 1.5: Extract service properties into separate arrays for analysis
                         var fulfillmentQuantity = new List<int>();
                         var serviceMonetaryValue = new List<double>();
                         var serviceCostContribution = new List<double>();
 
                         foreach (var service in serviceOfferings)
                         {
-                            // FIX: Use dynamic access directly and convert to expected type
                             try
                             {
                                 fulfillmentQuantity.Add(Convert.ToInt32(service.FulfillmentQuantity));
@@ -2581,21 +2788,17 @@ namespace Agentic_Mod
                             catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException rbEx)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] RuntimeBinder Error accessing service properties: {rbEx.Message}");
-                                // Handle missing properties or invalid types if necessary
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unexpected Error accessing service properties: {ex.Message}");
-                                // Handle other potential exceptions
                             }
                         }
 
-                        // Step 1.6: Output extracted service data for diagnostic purposes
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service FulfillmentQuantity: [{string.Join(", ", fulfillmentQuantity)}]");
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service MonetaryValue: [{string.Join(", ", serviceMonetaryValue)}]");
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service CostContributionValue: [{string.Join(", ", serviceCostContribution)}]");
 
-                        // Step 1.7: Process each service property array with K-means clustering for initial categorization
                         ProcessArrayWithKMeans(fulfillmentQuantity.Select(x => (double)x).ToArray(), "Service FulfillmentQuantity", unitResultsStore);
                         ProcessArrayWithKMeans(serviceMonetaryValue.ToArray(), "Service MonetaryValue", unitResultsStore);
                         ProcessArrayWithKMeans(serviceCostContribution.ToArray(), "Service CostContributionValue", unitResultsStore);
@@ -2605,11 +2808,7 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service offerings data not found in RuntimeProcessingContext. Skipping service analysis.");
                     }
 
-                    // TODO: Incorporate additional data sources or initial analysis steps here.
-
-                    // Step 1.8: Generate a result string summarizing the initial analysis state.
                     string result = $"InitialAnalysis_Cust_{custId}_Record_{record.RecordIdentifier}";
-
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 1 - Data acquisition and initial analysis completed: {result}");
                     return result;
                 }
@@ -2621,7 +2820,6 @@ namespace Agentic_Mod
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 2 - Generating feature tensors and mapping trajectories for customer {custId}.");
 
-                    // Step 2.1: Retrieve initial analysis results (coordinates) from the shared store.
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 2 - Retrieving coordinates from Step 1 analysis.");
 
                     //------------------------------------------
@@ -2645,7 +2843,6 @@ namespace Agentic_Mod
                     //------------------------------------------
                     // SERVICE COORDINATES (Derived from Step 1 K-means analysis)
                     //------------------------------------------
-                    // FIX: Retrieve service coordinate values from unitResultsStore
                     string servFulfillCategory = unitResultsStore.TryGetValue("Service FulfillmentQuantity_Category", out var sfc) ? sfc.ToString() : "Unknown";
                     double servFulfillX = unitResultsStore.TryGetValue("Service FulfillmentQuantity_NormalizedX", out var sfx) ? Convert.ToDouble(sfx) : 0;
                     double servFulfillY = unitResultsStore.TryGetValue("Service FulfillmentQuantity_NormalizedY", out var sfy) ? Convert.ToDouble(sfy) : 0;
@@ -2661,10 +2858,6 @@ namespace Agentic_Mod
                     double servCostY = unitResultsStore.TryGetValue("Service CostContributionValue_NormalizedY", out var scy) ? Convert.ToDouble(scy) : 0;
                     double servCostZ = unitResultsStore.TryGetValue("Service CostContributionValue_NormalizedZ", out var scz) ? Convert.ToDouble(scz) : 0;
 
-
-                    // TODO: Incorporate additional data sources or initial analysis steps here.
-
-                    // Step 2.2: Calculate overall feature tensors, magnitudes, and initial trajectories.
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 2 - Calculating tensors, magnitudes, and trajectories.");
 
                     //------------------------------------------
@@ -2672,13 +2865,13 @@ namespace Agentic_Mod
                     //------------------------------------------
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- PRODUCT TENSOR AND MAGNITUDE CALCULATIONS -----");
 
-                    double prodOverallTensorX = (prodQtyX + prodMonX + prodCostX) / 3.0; // Use double for division
+                    double prodOverallTensorX = (prodQtyX + prodMonX + prodCostX) / 3.0;
                     double prodOverallTensorY = (prodQtyY + prodMonY + prodCostY) / 3.0;
                     double prodOverallTensorZ = (prodQtyZ + prodMonZ + prodCostZ) / 3.0;
                     double prodOverallMagnitude = Math.Sqrt(prodOverallTensorX * prodOverallTensorX + prodOverallTensorY * prodOverallTensorY + prodOverallTensorZ * prodOverallTensorZ);
 
                     double[] prodTrajectory = new double[3] { 0, 0, 0 };
-                    if (prodOverallMagnitude > 1e-9) // Use tolerance for comparison with zero
+                    if (prodOverallMagnitude > 1e-9)
                     {
                         prodTrajectory[0] = prodOverallTensorX / prodOverallMagnitude;
                         prodTrajectory[1] = prodOverallTensorY / prodOverallMagnitude;
@@ -2694,13 +2887,13 @@ namespace Agentic_Mod
                     //------------------------------------------
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- SERVICE TENSOR AND MAGNITUDE CALCULATIONS -----");
 
-                    double servOverallTensorX = (servFulfillX + servMonX + servCostX) / 3.0; // Use double for division
+                    double servOverallTensorX = (servFulfillX + servMonX + servCostX) / 3.0;
                     double servOverallTensorY = (servFulfillY + servMonY + servCostY) / 3.0;
                     double servOverallTensorZ = (servFulfillZ + servMonZ + servCostZ) / 3.0;
                     double servOverallMagnitude = Math.Sqrt(servOverallTensorX * servOverallTensorX + servOverallTensorY * servOverallTensorY + servOverallTensorZ * servOverallTensorZ);
 
                     double[] servTrajectory = new double[3] { 0, 0, 0 };
-                    if (servOverallMagnitude > 1e-9) // Use tolerance for comparison with zero
+                    if (servOverallMagnitude > 1e-9)
                     {
                         servTrajectory[0] = servOverallTensorX / servOverallMagnitude;
                         servTrajectory[1] = servOverallTensorY / servOverallMagnitude;
@@ -2711,57 +2904,45 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Overall Magnitude: {servOverallMagnitude:F4}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Trajectory: ({servTrajectory[0]:F4}, {servTrajectory[1]:F4}, {servTrajectory[2]:F4})");
 
-                    // TODO: Calculate tensors for additional categories if added.
-
                     //==========================================================================
                     // Trajectory Plot Generation & Analysis
                     //==========================================================================
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- TRAJECTORY PLOT GENERATION & ANALYSIS -----");
 
-                    // Set parameters for recursive trajectory plotting
                     const int MAX_RECURSION_DEPTH = 35;
                     const double CONTINUE_PAST_PLANE = -2.0;
 
-                    // Create data structures to store trajectory plot points and intensities
                     List<double[]> productTrajectoryPoints = new List<double[]>();
                     List<double> productPointIntensities = new List<double>();
                     List<double[]> serviceTrajectoryPoints = new List<double[]>();
                     List<double> servicePointIntensities = new List<double>();
 
-                    // Starting positions for trajectories (at origin of overall tensor)
                     double[] productCurrentPosition = new double[] { prodOverallTensorX, prodOverallTensorY, prodOverallTensorZ };
                     double[] serviceCurrentPosition = new double[] { servOverallTensorX, servOverallTensorY, servOverallTensorZ };
 
-                    // Calculate scaling factor for magnitude visualization
                     double recursionFactor = 0.95;
 
-                    // Invert trajectories to ensure they move toward negative X and Y
                     double[] InvertTrajectoryIfNeeded(double[] trajectory)
                     {
-                        // Check if trajectory moves toward negative X and Y
-                        bool movesTowardNegativeX = trajectory != null && trajectory.Length > 0 && trajectory[0] < -1e-6; // Use tolerance
-                        bool movesTowardNegativeY = trajectory != null && trajectory.Length > 1 && trajectory[1] < -1e-6; // Use tolerance
+                        bool movesTowardNegativeX = trajectory != null && trajectory.Length > 0 && trajectory[0] < -1e-6;
+                        bool movesTowardNegativeY = trajectory != null && trajectory.Length > 1 && trajectory[1] < -1e-6;
 
-                        // If not moving toward negative for both X and Y, invert the trajectory
                         if (!movesTowardNegativeX || !movesTowardNegativeY)
                         {
-                            if (trajectory == null || trajectory.Length < 3) return new double[] { 0, 0, 0 }; // Return default if invalid input
-
+                            if (trajectory == null || trajectory.Length < 3) return new double[] { 0, 0, 0 };
 
                             double[] invertedTrajectory = new double[3];
-                            // Invert if not sufficiently negative
                             invertedTrajectory[0] = movesTowardNegativeX ? trajectory[0] : -Math.Abs(trajectory[0]);
                             invertedTrajectory[1] = movesTowardNegativeY ? trajectory[1] : -Math.Abs(trajectory[1]);
-                            invertedTrajectory[2] = trajectory.Length > 2 ? trajectory[2] : 0; // Keep Z as is, handle short array
+                            invertedTrajectory[2] = trajectory.Length > 2 ? trajectory[2] : 0;
 
-                            // Normalize again
                             double magnitude = Math.Sqrt(
                                 invertedTrajectory[0] * invertedTrajectory[0] +
                                 invertedTrajectory[1] * invertedTrajectory[1] +
                                 invertedTrajectory[2] * invertedTrajectory[2]
                             );
 
-                            if (magnitude > 1e-9) // Use tolerance for comparison
+                            if (magnitude > 1e-9)
                             {
                                 invertedTrajectory[0] /= magnitude;
                                 invertedTrajectory[1] /= magnitude;
@@ -2771,63 +2952,52 @@ namespace Agentic_Mod
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Inverted trajectory from ({trajectory[0]:F4}, {trajectory[1]:F4}, {trajectory[2]:F4}) to ({invertedTrajectory[0]:F4}, {invertedTrajectory[1]:F4}, {invertedTrajectory[2]:F4})");
                             return invertedTrajectory;
                         }
-                        if (trajectory != null && trajectory.Length >= 3) return (double[])trajectory.Clone(); // Return clone if no inversion needed
-                        return new double[] { 0, 0, 0 }; // Default if invalid input
+                        if (trajectory != null && trajectory.Length >= 3) return (double[])trajectory.Clone();
+                        return new double[] { 0, 0, 0 };
                     }
 
-                    // Get adjusted trajectories (ensure they move toward negative X and Y)
-                    double[] productTrajectoryAdjusted = InvertTrajectoryIfNeeded(prodTrajectory); // Renamed to avoid conflict
-                    double[] serviceTrajectoryAdjusted = InvertTrajectoryIfNeeded(servTrajectory); // Renamed to avoid conflict
+                    double[] productTrajectoryAdjusted = InvertTrajectoryIfNeeded(prodTrajectory);
+                    double[] serviceTrajectoryAdjusted = InvertTrajectoryIfNeeded(servTrajectory);
 
-                    // Function to recursively plot trajectory
                     void RecursivePlotTrajectory(double[] currentPosition, double[] trajectory, double magnitude,
                                                 List<double[]> points, List<double> intensities, int depth,
                                                 string trajectoryName)
                     {
-                        if (currentPosition == null || trajectory == null || currentPosition.Length < 3 || trajectory.Length < 3) return; // Add null/length check
+                        if (currentPosition == null || trajectory == null || currentPosition.Length < 3 || trajectory.Length < 3) return;
 
-
-                        // Base case - stop recursion at maximum depth
                         if (depth >= MAX_RECURSION_DEPTH)
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {trajectoryName} recursion stopped at max depth {depth}");
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {trajectoryName} final position: ({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4})");
-                            // Add the final point to ensure the endpoint in negative space is captured
                             points.Add((double[])currentPosition.Clone());
-                            double finalPointIntensity = magnitude * Math.Pow(recursionFactor, depth); // Renamed variable
+                            double finalPointIntensity = magnitude * Math.Pow(recursionFactor, depth);
                             intensities.Add(finalPointIntensity);
                             return;
                         }
 
-                        // Stop if we've gone far enough past both planes
                         if (currentPosition[0] < CONTINUE_PAST_PLANE && currentPosition[1] < CONTINUE_PAST_PLANE)
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {trajectoryName} recursion stopped - Reached target negative threshold at depth {depth}");
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {trajectoryName} final position: ({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4})");
-                            // Add the final point before stopping
                             points.Add((double[])currentPosition.Clone());
-                            double finalPointIntensity = magnitude * Math.Pow(recursionFactor, depth); // Renamed variable
+                            double finalPointIntensity = magnitude * Math.Pow(recursionFactor, depth);
                             intensities.Add(finalPointIntensity);
                             return;
                         }
 
-                        // Add current position to trajectory points
                         points.Add((double[])currentPosition.Clone());
 
-                        // Calculate intensity based on magnitude and recursion depth
-                        double currentPointIntensity = magnitude * Math.Pow(recursionFactor, depth); // Renamed variable
+                        double currentPointIntensity = magnitude * Math.Pow(recursionFactor, depth);
                         intensities.Add(currentPointIntensity);
 
-                        // Note progress through planes
-                        bool beyondXPlane = currentPosition[0] < -1e-6; // Use tolerance
-                        bool beyondYPlane = currentPosition[1] < -1e-6; // Use tolerance
+                        bool beyondXPlane = currentPosition[0] < -1e-6;
+                        bool beyondYPlane = currentPosition[1] < -1e-6;
                         bool beyondBothPlanes = beyondXPlane && beyondYPlane;
 
-                        // Log position for every 4th point or when crossing planes
                         if (depth % 4 == 0 || beyondBothPlanes ||
-                            (depth > 0 && points.Count > 1 && ( // Ensure we have a previous point to compare
-                                (points[points.Count - 2][0] >= -1e-6 && beyondXPlane) || // Crossed X=0 with tolerance
-                                (points[points.Count - 2][1] >= -1e-6 && beyondYPlane)     // Crossed Y=0 with tolerance
+                            (depth > 0 && points.Count > 1 && (
+                                (points[points.Count - 2][0] >= -1e-6 && beyondXPlane) ||
+                                (points[points.Count - 2][1] >= -1e-6 && beyondYPlane)
                             )))
                         {
                             string positionInfo = "";
@@ -2835,107 +3005,83 @@ namespace Agentic_Mod
                             if (beyondYPlane) positionInfo += " BEYOND-Y-PLANE";
 
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {trajectoryName} point {depth}: " +
-                                                              $"Position=({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4}), " +
-                                                              $"Intensity={currentPointIntensity:F4}{positionInfo}"); // Use renamed variable
+                                             $"Position=({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4}), " +
+                                             $"Intensity={currentPointIntensity:F4}{positionInfo}");
                         }
 
-                        // Calculate next position along trajectory
-                        // Use aggressive step size to ensure we reach negative territory
                         double stepMultiplier = 1.0;
 
-                        // Larger steps early in recursion, smaller as we get deeper
                         if (depth < 10)
                         {
-                            stepMultiplier = 2.0; // Much larger initial steps
+                            stepMultiplier = 2.0;
                         }
-                        else if (!beyondBothPlanes && depth < MAX_RECURSION_DEPTH - 5) // Ensure we try to reach negative territory unless near end
+                        else if (!beyondBothPlanes && depth < MAX_RECURSION_DEPTH - 5)
                         {
-                            stepMultiplier = 1.5; // Still need to reach negative territory
+                            stepMultiplier = 1.5;
                         }
                         else
                         {
-                            stepMultiplier = 1.0; // Standard step once in negative territory or near end
+                            stepMultiplier = 1.0;
                         }
 
-                        // Base step size calculation
                         double stepSize = magnitude * Math.Pow(recursionFactor, depth) * 0.4 * stepMultiplier;
 
-                        // Calculate next position
                         double[] nextPosition = new double[3];
                         for (int i = 0; i < 3; i++)
                         {
                             nextPosition[i] = currentPosition[i] + trajectory[i] * stepSize;
                         }
 
-                        // Recursively plot next point
                         RecursivePlotTrajectory(nextPosition, trajectory, magnitude, points, intensities, depth + 1, trajectoryName);
                     }
 
-
-                    // Generate recursive plots for product trajectory
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generating Product trajectory recursive plot");
                     RecursivePlotTrajectory(productCurrentPosition, productTrajectoryAdjusted, prodOverallMagnitude,
                                            productTrajectoryPoints, productPointIntensities, 0, "PRODUCT");
 
-                    // Generate recursive plots for service trajectory
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generating Service trajectory recursive plot");
                     RecursivePlotTrajectory(serviceCurrentPosition, serviceTrajectoryAdjusted, servOverallMagnitude,
                                            serviceTrajectoryPoints, servicePointIntensities, 0, "SERVICE");
-
-                    // TODO: Generate plots for additional categories if added.
 
                     //==========================================================================
                     // Trajectory Intersection Analysis
                     //==========================================================================
 
-                    // Calculate plane intersection points for both trajectories
-                    // Use a tolerance for checking sign changes when crossing planes
-                    double[] productXPlaneIntersection = CalculatePlaneIntersection(productTrajectoryPoints, 0, 1e-6); // X=0 plane
-                    double[] productYPlaneIntersection = CalculatePlaneIntersection(productTrajectoryPoints, 1, 1e-6); // Y=0 plane
-                    double[] serviceXPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 0, 1e-6); // X=0 plane
-                    double[] serviceYPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 1, 1e-6); // Y=0 plane;
-
-
-
+                    double[] productXPlaneIntersection = CalculatePlaneIntersection(productTrajectoryPoints, 0, 1e-6);
+                    double[] productYPlaneIntersection = CalculatePlaneIntersection(productTrajectoryPoints, 1, 1e-6);
+                    double[] serviceXPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 0, 1e-6);
+                    double[] serviceYPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 1, 1e-6);
 
                     //==========================================================================
                     // Feature Coordinate Extraction
                     //==========================================================================
 
-
-
-
                     //------------------------------------------
                     // PRODUCT TRAJECTORY VARIABLES
                     //------------------------------------------
-                    double[] productVector = (productTrajectoryAdjusted != null && productTrajectoryAdjusted.Length >= 3) ? (double[])productTrajectoryAdjusted.Clone() : new double[] { 0, 0, 0 }; // Use adjusted trajectory, handle null/length
+                    double[] productVector = (productTrajectoryAdjusted != null && productTrajectoryAdjusted.Length >= 3) ? (double[])productTrajectoryAdjusted.Clone() : new double[] { 0, 0, 0 };
                     double productVelocity = CalculateVelocity(productVector, prodOverallMagnitude);
-                    double[] productPositiveCoordinate = FindPositiveCoordinate(productTrajectoryPoints, 1e-6); // Use tolerance
-                    double[] productNegativeCoordinate = FindNegativeCoordinate(productTrajectoryPoints, 1e-6); // Use tolerance
-
+                    double[] productPositiveCoordinate = FindPositiveCoordinate(productTrajectoryPoints, 1e-6);
+                    double[] productNegativeCoordinate = FindNegativeCoordinate(productTrajectoryPoints, 1e-6);
 
                     //------------------------------------------
                     // SERVICE TRAJECTORY VARIABLES
                     //------------------------------------------
-                    double[] serviceVector = (serviceTrajectoryAdjusted != null && serviceTrajectoryAdjusted.Length >= 3) ? (double[])serviceTrajectoryAdjusted.Clone() : new double[] { 0, 0, 0 }; // Use adjusted trajectory, handle null/length
+                    double[] serviceVector = (serviceTrajectoryAdjusted != null && serviceTrajectoryAdjusted.Length >= 3) ? (double[])serviceTrajectoryAdjusted.Clone() : new double[] { 0, 0, 0 };
                     double serviceVelocity = CalculateVelocity(serviceVector, servOverallMagnitude);
-                    double[] servicePositiveCoordinate = FindPositiveCoordinate(serviceTrajectoryPoints, 1e-6); // Use tolerance
-                    double[] serviceNegativeCoordinate = FindNegativeCoordinate(serviceTrajectoryPoints, 1e-6); // Use tolerance
-
-
-                    // TODO: Extract coordinates for additional categories if added.
+                    double[] servicePositiveCoordinate = FindPositiveCoordinate(serviceTrajectoryPoints, 1e-6);
+                    double[] serviceNegativeCoordinate = FindNegativeCoordinate(serviceTrajectoryPoints, 1e-6);
 
                     //==========================================================================
                     // Trajectory Analysis Logging
                     //==========================================================================
 
-                    // Log plane intersection points and key trajectory data
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- PLANE INTERSECTION ANALYSIS -----");
 
                     if (productXPlaneIntersection != null)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product X-Plane Intersection: " +
-                                                          $"(0.000000, {productXPlaneIntersection[1]:F6}, {productXPlaneIntersection[2]:F6})");
+                                         $"(0.000000, {productXPlaneIntersection[1]:F6}, {productXPlaneIntersection[2]:F6})");
                     }
                     else
                     {
@@ -2945,7 +3091,7 @@ namespace Agentic_Mod
                     if (productYPlaneIntersection != null)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Y-Plane Intersection: " +
-                                                          $"({productYPlaneIntersection[0]:F6}, 0.000000, {productYPlaneIntersection[2]:F6})");
+                                         $"({productYPlaneIntersection[0]:F6}, 0.000000, {productYPlaneIntersection[2]:F6})");
                     }
                     else
                     {
@@ -2955,7 +3101,7 @@ namespace Agentic_Mod
                     if (serviceXPlaneIntersection != null)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service X-Plane Intersection: " +
-                                                          $"(0.000000, {serviceXPlaneIntersection[1]:F6}, {serviceXPlaneIntersection[2]:F6})");
+                                         $"(0.000000, {serviceXPlaneIntersection[1]:F6}, {serviceXPlaneIntersection[2]:F6})");
                     }
                     else
                     {
@@ -2965,14 +3111,13 @@ namespace Agentic_Mod
                     if (serviceYPlaneIntersection != null)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Y-Plane Intersection: " +
-                                                          $"({serviceYPlaneIntersection[0]:F6}, 0.000000, {serviceYPlaneIntersection[2]:F6})");
+                                         $"({serviceYPlaneIntersection[0]:F6}, 0.000000, {serviceYPlaneIntersection[2]:F6})");
                     }
                     else
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service trajectory does not intersect Y-Plane");
                     }
 
-                    // Log key trajectory data
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- KEY TRAJECTORY DATA -----");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Vector: ({productVector[0]:F6}, {productVector[1]:F6}, {productVector[2]:F6})");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Velocity: {productVelocity:F6}");
@@ -2988,7 +3133,6 @@ namespace Agentic_Mod
                     // Trajectory Statistics
                     //==========================================================================
 
-                    // Count points in negative quadrants using tolerance
                     int productNegativeXCount = CountNegativePoints(productTrajectoryPoints, 0, 1e-6);
                     int productNegativeYCount = CountNegativePoints(productTrajectoryPoints, 1, 1e-6);
                     int productNegativeBothCount = CountNegativeBothPoints(productTrajectoryPoints, 1e-6);
@@ -2997,9 +3141,6 @@ namespace Agentic_Mod
                     int serviceNegativeYCount = CountNegativePoints(serviceTrajectoryPoints, 1, 1e-6);
                     int serviceNegativeBothCount = CountNegativeBothPoints(serviceTrajectoryPoints, 1e-6);
 
-
-
-                    // Log negative point counts
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative X count: {productNegativeXCount}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative Y count: {productNegativeYCount}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative both count: {productNegativeBothCount}");
@@ -3012,19 +3153,16 @@ namespace Agentic_Mod
                     // Store Analysis Results
                     //==========================================================================
 
-                    // Store trajectory plot data in unitResultsStore
                     unitResultsStore["Product_TrajectoryPoints"] = productTrajectoryPoints;
                     unitResultsStore["Product_PointIntensities"] = productPointIntensities;
                     unitResultsStore["Service_TrajectoryPoints"] = serviceTrajectoryPoints;
                     unitResultsStore["Service_PointIntensities"] = servicePointIntensities;
 
-                    // Store plane intersections
                     unitResultsStore["Product_XPlaneIntersection"] = productXPlaneIntersection;
                     unitResultsStore["Product_YPlaneIntersection"] = productYPlaneIntersection;
                     unitResultsStore["Service_XPlaneIntersection"] = serviceXPlaneIntersection;
                     unitResultsStore["Service_YPlaneIntersection"] = serviceYPlaneIntersection;
 
-                    // Store key trajectory data
                     unitResultsStore["Product_Vector"] = productVector;
                     unitResultsStore["Product_Velocity"] = productVelocity;
                     unitResultsStore["Product_PositiveCoordinate"] = productPositiveCoordinate;
@@ -3035,7 +3173,6 @@ namespace Agentic_Mod
                     unitResultsStore["Service_PositiveCoordinate"] = servicePositiveCoordinate;
                     unitResultsStore["Service_NegativeCoordinate"] = serviceNegativeCoordinate;
 
-                    // Store trajectory statistics
                     unitResultsStore["Product_NegativeXCount"] = productNegativeXCount;
                     unitResultsStore["Product_NegativeYCount"] = productNegativeYCount;
                     unitResultsStore["Product_NegativeBothCount"] = productNegativeBothCount;
@@ -3043,13 +3180,9 @@ namespace Agentic_Mod
                     unitResultsStore["Service_NegativeYCount"] = serviceNegativeYCount;
                     unitResultsStore["Service_NegativeBothCount"] = serviceNegativeBothCount;
 
-                    // TODO: Store results for additional categories if added.
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product trajectory plot: {productTrajectoryPoints?.Count ?? 0} points, {productNegativeBothCount} in negative X-Y quadrant");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service trajectory plot: {serviceTrajectoryPoints?.Count ?? 0} points, {serviceNegativeBothCount} in negative X-Y quadrant");
 
-                    // Log summary
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product trajectory plot: {productTrajectoryPoints?.Count ?? 0} points, {productNegativeBothCount} in negative X-Y quadrant"); // Added null check
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service trajectory plot: {serviceTrajectoryPoints?.Count ?? 0} points, {serviceNegativeBothCount} in negative X-Y quadrant"); // Added null check
-
-                    // Step 2.3: Generate a result string summarizing the tensor generation and mapping state.
                     string result = $"FeatureTensorsAndMapping_Cust_{custId}_BasedOn_{analysisResult.Replace("InitialAnalysis_", "")}";
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 2 - Feature tensor generation and mapping completed: {result}");
@@ -3059,64 +3192,48 @@ namespace Agentic_Mod
                 //==========================================================================
                 // Step 3: Processed Feature Definition Creation
                 //==========================================================================
-                string Stage3_ProcessedFeatureDefinition(string tensorMappingResult, int custId) // Removed Session parameter
+                string Stage3_ProcessedFeatureDefinition(string tensorMappingResult, int custId)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 3 - Creating processed feature definition for customer {custId}.");
 
-                    //------------------------------------------
-                    // RETRIEVE FEATURE DATA (from Step 2 & 3)
-                    //------------------------------------------
-                    // Retrieve velocity, trajectory and intersection data for QA assessment
                     double productVelocity = unitResultsStore.TryGetValue("Product_Velocity", out var pv)
                         ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_Velocity", out var sv)
                         ? Convert.ToDouble(sv) : 0.5;
 
-                    // Access trajectory points for verification (from Step 2)
                     var productTrajectoryPoints = unitResultsStore.TryGetValue("Product_TrajectoryPoints", out var ptp)
                         ? ptp as List<double[]> : new List<double[]>();
                     var serviceTrajectoryPoints = unitResultsStore.TryGetValue("Service_TrajectoryPoints", out var stp)
                         ? stp as List<double[]> : new List<double[]>();
 
-                    // Get plane intersections (from Step 2)
                     double[] productXPlaneIntersection = unitResultsStore.TryGetValue("Product_XPlaneIntersection", out var pxi)
                         ? pxi as double[] : null;
                     double[] productYPlaneIntersection = unitResultsStore.TryGetValue("Product_YPlaneIntersection", out var pyi)
                         ? pyi as double[] : null;
 
-                    // TODO: Retrieve assessment data for additional categories if added.
-
-                    //------------------------------------------
-                    // QUALITY ASSESSMENT CALCULATION
-                    //------------------------------------------
                     double velocityComponent = (productVelocity + serviceVelocity) / 2.0;
-                    double trajectoryStability = 0.5; // Default value
-                    double intersectionQuality = 0.5; // Default value
+                    double trajectoryStability = 0.5;
+                    double intersectionQuality = 0.5;
 
-                    // Calculate trajectory stability if we have points
                     if (productTrajectoryPoints != null && productTrajectoryPoints.Count > 1)
                     {
                         trajectoryStability = CalculateTrajectoryStability(productTrajectoryPoints);
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA product trajectory stability: {trajectoryStability:F4}");
                     }
 
-                    // Calculate intersection quality if we have intersections
                     if (productXPlaneIntersection != null && productYPlaneIntersection != null)
                     {
-                        // Higher quality if X and Y intersections have similar Z values
                         double zDifference = Math.Abs(productXPlaneIntersection[2] - productYPlaneIntersection[2]);
-                        intersectionQuality = 1.0 - Math.Min(1.0, zDifference); // 1.0 for identical Z, lower for different Z
+                        intersectionQuality = 1.0 - Math.Min(1.0, zDifference);
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA intersection quality: {intersectionQuality:F4}");
                     }
 
-                    // Combine factors with weights: 40% velocity, 30% stability, 30% intersection
                     double qaScore = velocityComponent * 0.4 + trajectoryStability * 0.3 + intersectionQuality * 0.3;
-                    qaScore = Math.Min(qaScore, 1.0); // Cap at 1.0
+                    qaScore = Math.Min(qaScore, 1.0);
 
-                    int qaLevel = (int)(qaScore * 3) + 1; // QA levels 1-4 (adjust based on desired range and granularity)
+                    int qaLevel = (int)(qaScore * 3) + 1;
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA final score: {qaScore:F4}, level: {qaLevel}");
 
-                    // Step 4.1: Generate a result string summarizing the QA assessment.
                     string result = $"QualityAssessment_Passed_Level_{qaLevel}_V{velocityComponent:F2}_S{trajectoryStability:F2}_I{intersectionQuality:F2}";
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 3 - Processed feature definition created: {result}");
@@ -3130,66 +3247,49 @@ namespace Agentic_Mod
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 4 - Assessing feature quality for customer {custId}.");
 
-                    //------------------------------------------
-                    // RETRIEVE ASSESSMENT DATA (from Step 2 & 3)
-                    //------------------------------------------
-                    // Retrieve velocity, trajectory and intersection data for QA assessment
                     double productVelocity = unitResultsStore.TryGetValue("Product_Velocity", out var pv)
                         ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_Velocity", out var sv)
                         ? Convert.ToDouble(sv) : 0.5;
 
-                    // Access trajectory points for verification (from Step 2)
                     var productTrajectoryPoints = unitResultsStore.TryGetValue("Product_TrajectoryPoints", out var ptp)
                         ? ptp as List<double[]> : new List<double[]>();
                     var serviceTrajectoryPoints = unitResultsStore.TryGetValue("Service_TrajectoryPoints", out var stp)
                         ? stp as List<double[]> : new List<double[]>();
 
-                    // Get plane intersections (from Step 2)
                     double[] productXPlaneIntersection = unitResultsStore.TryGetValue("Product_XPlaneIntersection", out var pxi)
                         ? pxi as double[] : null;
                     double[] productYPlaneIntersection = unitResultsStore.TryGetValue("Product_YPlaneIntersection", out var pyi)
-                        ? pyi as double[] : null;
+                        ? pxi as double[] : null;
 
-                    // TODO: Retrieve assessment data for additional categories if added.
-
-                    //------------------------------------------
-                    // QUALITY ASSESSMENT CALCULATION
-                    //------------------------------------------
                     double velocityComponent = (productVelocity + serviceVelocity) / 2.0;
-                    double trajectoryStability = 0.5; // Default value
-                    double intersectionQuality = 0.5; // Default value
+                    double trajectoryStability = 0.5;
+                    double intersectionQuality = 0.5;
 
-                    // Calculate trajectory stability if we have points
                     if (productTrajectoryPoints != null && productTrajectoryPoints.Count > 1)
                     {
                         trajectoryStability = CalculateTrajectoryStability(productTrajectoryPoints);
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA product trajectory stability: {trajectoryStability:F4}");
                     }
 
-                    // Calculate intersection quality if we have intersections
                     if (productXPlaneIntersection != null && productYPlaneIntersection != null)
                     {
-                        // Higher quality if X and Y intersections have similar Z values
                         double zDifference = Math.Abs(productXPlaneIntersection[2] - productYPlaneIntersection[2]);
-                        intersectionQuality = 1.0 - Math.Min(1.0, zDifference); // 1.0 for identical Z, lower for different Z
+                        intersectionQuality = 1.0 - Math.Min(1.0, zDifference);
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA intersection quality: {intersectionQuality:F4}");
                     }
 
-                    // Combine factors with weights: 40% velocity, 30% stability, 30% intersection
                     double qaScore = velocityComponent * 0.4 + trajectoryStability * 0.3 + intersectionQuality * 0.3;
-                    qaScore = Math.Min(qaScore, 1.0); // Cap at 1.0
+                    qaScore = Math.Min(qaScore, 1.0);
 
-                    int qaLevel = (int)(qaScore * 3) + 1; // QA levels 1-4 (adjust based on desired range and granularity)
+                    int qaLevel = (int)(qaScore * 3) + 1;
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA final score: {qaScore:F4}, level: {qaLevel}");
 
-                    // Step 4.1: Generate a result string summarizing the QA assessment.
                     string result = $"QualityAssessment_Passed_Level_{qaLevel}_V{velocityComponent:F2}_S{trajectoryStability:F2}_I{intersectionQuality:F2}";
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 4 - Feature quality assessment completed: {result}");
                     return result;
                 }
-
 
                 //==========================================================================
                 // Step 5: Combined Feature Evaluation
@@ -3198,10 +3298,6 @@ namespace Agentic_Mod
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 5 - Evaluating combined features for customer {custId}.");
 
-                    //------------------------------------------
-                    // RETRIEVE EVALUATION DATA (from Step 2 & 4)
-                    //------------------------------------------
-                    // Retrieve velocity and negative coordinate counts (from Step 2)
                     double productVelocity = unitResultsStore.TryGetValue("Product_Velocity", out var pv)
                         ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_Velocity", out var sv)
@@ -3212,58 +3308,41 @@ namespace Agentic_Mod
                     int serviceNegativeBothCount = unitResultsStore.TryGetValue("Service_NegativeBothCount", out var snbc)
                         ? Convert.ToInt32(snbc) : 0;
 
-                    // Calculate total negative coordinate coverage
                     int totalNegativePoints = productNegativeBothCount + serviceNegativeBothCount;
 
-                    // Retrieve feature vectors for alignment assessment (from Step 2)
                     double[] productVector = unitResultsStore.TryGetValue("Product_Vector", out var pvec)
                         ? pvec as double[] : new double[] { 0, 0, 0 };
                     double[] serviceVector = unitResultsStore.TryGetValue("Service_Vector", out var svec)
                         ? svec as double[] : new double[] { 0, 0, 0 };
 
-
-                    // TODO: Retrieve evaluation data for additional categories if added.
-
-                    //------------------------------------------
-                    // ALIGNMENT ASSESSMENT
-                    //------------------------------------------
-                    // Calculate alignment score between product and service vectors using cosine similarity.
-                    double alignmentScore = 0.5; // Default if magnitudes are zero
-                    double productMagSq = productVector != null ? productVector[0] * productVector[0] + productVector[1] * productVector[1] + productVector[2] * productVector[2] : 0; // Handle null
-                    double serviceMagSq = serviceVector != null ? serviceVector[0] * serviceVector[0] + serviceVector[1] * serviceVector[1] + serviceVector[2] * serviceVector[2] : 0; // Handle null
+                    double alignmentScore = 0.5;
+                    double productMagSq = productVector != null ? productVector[0] * productVector[0] + productVector[1] * productVector[1] + productVector[2] * productVector[2] : 0;
+                    double serviceMagSq = serviceVector != null ? serviceVector[0] * serviceVector[0] + serviceVector[1] * serviceVector[1] + serviceVector[2] * serviceVector[2] : 0;
 
                     double productMag = Math.Sqrt(productMagSq);
                     double serviceMag = Math.Sqrt(serviceMagSq);
 
-
-                    if (productMag > 1e-9 && serviceMag > 1e-9) // Use tolerance for non-zero magnitude
+                    if (productMag > 1e-9 && serviceMag > 1e-9)
                     {
                         double dotProduct = 0;
-                        if (productVector != null && serviceVector != null) // Add null checks
+                        if (productVector != null && serviceVector != null)
                         {
-                            for (int i = 0; i < Math.Min(productVector.Length, serviceVector.Length); i++) // Use min length
+                            for (int i = 0; i < Math.Min(productVector.Length, serviceVector.Length); i++)
                             {
                                 dotProduct += productVector[i] * serviceVector[i];
                             }
                         }
                         alignmentScore = dotProduct / (productMag * serviceMag);
-                        // Clamp alignment score to [-1, 1]
                         alignmentScore = Math.Max(-1.0, Math.Min(1.0, alignmentScore));
-                        // Normalize alignment score to [0, 1] (closer to 1 means better alignment)
                         alignmentScore = (alignmentScore + 1.0) / 2.0;
                     }
 
+                    float baseScore = 0.75f + (custId % 10) / 10.0f;
+                    float velocityBonus = (float)((productVelocity + serviceVelocity) / 4);
+                    float alignmentBonus = (float)(alignmentScore / 5);
+                    float negativeBonus = (float)(Math.Min(totalNegativePoints, 10) / 33.33);
 
-                    //------------------------------------------
-                    // FINAL EVALUATION SCORE CALCULATION
-                    //------------------------------------------
-                    // Calculate final evaluation score based on multiple factors from previous steps.
-                    float baseScore = 0.75f + (custId % 10) / 10.0f; // Base score influenced by customer ID
-                    float velocityBonus = (float)((productVelocity + serviceVelocity) / 4); // Bonus based on feature velocity magnitude (Max 0.5)
-                    float alignmentBonus = (float)(alignmentScore / 5); // Bonus based on product-service alignment (Max 0.2)
-                    float negativeBonus = (float)(Math.Min(totalNegativePoints, 10) / 33.33); // Bonus for significant negative trajectory presence (Max ~0.3 for 10+ points)
-
-                    float result = Math.Min(baseScore + velocityBonus + alignmentBonus + negativeBonus, 1.0f); // Cap the final score at 1.0
+                    float result = Math.Min(baseScore + velocityBonus + alignmentBonus + negativeBonus, 1.0f);
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 5 - Combined feature evaluation calculation.");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Base Score: {baseScore:F4}");
@@ -3272,31 +3351,21 @@ namespace Agentic_Mod
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Negative Trajectory Bonus: {negativeBonus:F4} (Total Negative Points: {totalNegativePoints})");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Final Score: {result:F4}");
 
-                    return result; // Return the final evaluation score
+                    return result;
                 }
-
-
-
 
                 //==========================================================================
                 // Step 6: Fractal Optimization Analysis
                 //==========================================================================
-
-
                 string Stage6_FractalOptimizationAnalysis(string evaluationResult, float evaluationScore, int custId)
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 6 - Performing fractal optimization analysis for customer {custId}.");
 
-                    //------------------------------------------
-                    // RETRIEVE FEATURE DATA (from Step 2)
-                    //------------------------------------------
-                    // Retrieve velocity variables for products and services (from Step 2)
                     double productVelocity = unitResultsStore.TryGetValue("Product_Velocity", out var pv)
                         ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_Velocity", out var sv)
                         ? Convert.ToDouble(sv) : 0.5;
 
-                    // Retrieve plane intersection points for the X=0 and Y=0 planes (from Step 2)
                     double[] productXPlaneIntersection = unitResultsStore.TryGetValue("Product_XPlaneIntersection", out var pxi)
                         ? pxi as double[] : null;
                     double[] productYPlaneIntersection = unitResultsStore.TryGetValue("Product_YPlaneIntersection", out var pyi)
@@ -3306,11 +3375,6 @@ namespace Agentic_Mod
                     double[] serviceYPlaneIntersection = unitResultsStore.TryGetValue("Service_YPlaneIntersection", out var syi)
                         ? syi as double[] : null;
 
-                    // TODO: Retrieve data for additional categories if added.
-
-                    //------------------------------------------
-                    // LOG PRODUCT AND SERVICE PLANE INTERSECTIONS
-                    //------------------------------------------
                     Console.WriteLine("========== PRODUCT INTERSECTIONS ==========");
                     if (productXPlaneIntersection != null)
                     {
@@ -3349,17 +3413,10 @@ namespace Agentic_Mod
                         Console.WriteLine("Service Y-Plane Intersection: null");
                     }
 
-                    //------------------------------------------
-                    // MANDELBULB ALGORITHM CONSTANTS
-                    //------------------------------------------
-                    const int Power = 8;               // Power parameter for the fractal
-                    const float EscapeThreshold = 2.0f; // Escape threshold
-                    const int MaxIterations = 30;      // Maximum iterations for fractal generation
+                    const int Power = 8;
+                    const float EscapeThreshold = 2.0f;
+                    const int MaxIterations = 30;
 
-                    //------------------------------------------
-                    // CALCULATE VELOCITY AT INTERSECTIONS
-                    //------------------------------------------
-                    // Calculate velocity at each plane intersection
                     float productXPlaneVelocity = (float)(productXPlaneIntersection != null ? productVelocity : 0.0);
                     float productYPlaneVelocity = (float)(productYPlaneIntersection != null ? productVelocity : 0.0);
                     float serviceXPlaneVelocity = (float)(serviceXPlaneIntersection != null ? serviceVelocity : 0.0);
@@ -3371,13 +3428,9 @@ namespace Agentic_Mod
                     Console.WriteLine($"Service X-Plane Velocity: {serviceXPlaneVelocity:F4}");
                     Console.WriteLine($"Service Y-Plane Velocity: {serviceYPlaneVelocity:F4}");
 
-                    //------------------------------------------
-                    // FRACTAL GENERATION AND VELOCITY DIFFUSION
-                    //------------------------------------------
-                    // Define velocity source points (the plane intersections) in 3D space
                     List<(System.Numerics.Vector3 position, float velocity, string source)> velocitySources = new List<(System.Numerics.Vector3, float, string)>();
 
-                    if (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) // Added length check
+                    if (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3)
                     {
                         velocitySources.Add((
                             new System.Numerics.Vector3(0.0f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]),
@@ -3385,7 +3438,7 @@ namespace Agentic_Mod
                             "ProductX"));
                     }
 
-                    if (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) // Added length check
+                    if (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3)
                     {
                         velocitySources.Add((
                             new System.Numerics.Vector3((float)productYPlaneIntersection[0], 0.0f, (float)productYPlaneIntersection[2]),
@@ -3393,7 +3446,7 @@ namespace Agentic_Mod
                             "ProductY"));
                     }
 
-                    if (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) // Added length check
+                    if (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3)
                     {
                         velocitySources.Add((
                             new System.Numerics.Vector3(0.0f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]),
@@ -3401,7 +3454,7 @@ namespace Agentic_Mod
                             "ServiceX"));
                     }
 
-                    if (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) // Added length check
+                    if (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3)
                     {
                         velocitySources.Add((
                             new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], 0.0f, (float)serviceYPlaneIntersection[2]),
@@ -3415,30 +3468,24 @@ namespace Agentic_Mod
                         Console.WriteLine($"{source.source} Source Position: ({source.position.X:F4}, {source.position.Y:F4}, {source.position.Z:F4}), Velocity: {source.velocity:F4}");
                     }
 
-                    // Generate 5 sample points within the fractal space
                     System.Numerics.Vector3[] samplePoints = new System.Numerics.Vector3[5];
 
-                    // Sample 1: Near the Product X-Plane intersection if available, otherwise default
-                    samplePoints[0] = (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) ? // Added length check
+                    samplePoints[0] = (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) ?
                         new System.Numerics.Vector3(0.1f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]) :
                         new System.Numerics.Vector3(0.1f, 0.1f, 0.1f);
 
-                    // Sample 2: Near the Product Y-Plane intersection if available, otherwise default
-                    samplePoints[1] = (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) ? // Added length check
+                    samplePoints[1] = (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) ?
                         new System.Numerics.Vector3((float)productYPlaneIntersection[0], 0.1f, (float)productYPlaneIntersection[2]) :
                         new System.Numerics.Vector3(0.5f, 0.0f, 0.0f);
 
-                    // Sample 3: Near the Service X-Plane intersection if available, otherwise default
-                    samplePoints[2] = (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) ? // Added length check
+                    samplePoints[2] = (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) ?
                         new System.Numerics.Vector3(0.1f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]) :
                         new System.Numerics.Vector3(0.0f, 0.8f, 0.0f);
 
-                    // Sample 4: Near the Service Y-Plane intersection if available, otherwise default
-                    samplePoints[3] = (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) ? // Added length check
+                    samplePoints[3] = (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) ?
                         new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], 0.1f, (float)serviceYPlaneIntersection[2]) :
                         new System.Numerics.Vector3(0.3f, 0.3f, 0.3f);
 
-                    // Sample 5: Average of all available intersections, or default
                     if (velocitySources.Count > 0)
                     {
                         System.Numerics.Vector3 sum = System.Numerics.Vector3.Zero;
@@ -3459,13 +3506,11 @@ namespace Agentic_Mod
                         Console.WriteLine($"Sample {i + 1} Coordinates: ({samplePoints[i].X:F4}, {samplePoints[i].Y:F4}, {samplePoints[i].Z:F4})");
                     }
 
-                    // Arrays to store results for each sample
                     System.Numerics.Vector3[] sampleValues = new System.Numerics.Vector3[5];
                     int[] sampleIterations = new int[5];
                     float[] sampleVelocities = new float[5];
                     Dictionary<int, Dictionary<string, float>> sampleContributions = new Dictionary<int, Dictionary<string, float>>();
 
-                    // Initialize sample contributions tracking
                     for (int i = 0; i < 5; i++)
                     {
                         sampleContributions[i] = new Dictionary<string, float>();
@@ -3475,25 +3520,21 @@ namespace Agentic_Mod
                         }
                     }
 
-                    // Generate the fractal and track velocity diffusion at each sample point
                     for (int sampleIndex = 0; sampleIndex < 5; sampleIndex++)
                     {
-                        // Initialize the fractal computation for this sample point
                         System.Numerics.Vector3 c = samplePoints[sampleIndex];
                         System.Numerics.Vector3 z = System.Numerics.Vector3.Zero;
                         int iterations = 0;
-                        float diffusedVelocity = 0.0f; // Will accumulate diffused velocity
+                        float diffusedVelocity = 0.0f;
 
                         Console.WriteLine($"========== PROCESSING SAMPLE {sampleIndex + 1} ==========");
                         Console.WriteLine($"Starting point: ({c.X:F4}, {c.Y:F4}, {c.Z:F4})");
 
-                        // Iterate the fractal formula for this sample point
                         for (iterations = 0; iterations < MaxIterations; iterations++)
                         {
-                            float rSq = z.LengthSquared(); // Use squared length for efficiency
+                            float rSq = z.LengthSquared();
 
-                            // If we've escaped, we're done with this sample
-                            if (rSq > EscapeThreshold * EscapeThreshold) // Compare squared length
+                            if (rSq > EscapeThreshold * EscapeThreshold)
                             {
                                 Console.WriteLine($"Escaped at iteration {iterations + 1}");
                                 break;
@@ -3502,25 +3543,19 @@ namespace Agentic_Mod
 
                             Console.WriteLine($"Iteration {iterations + 1}, z=({z.X:F6}, {z.Y:F6}, {z.Z:F6}), r={r:F6}");
 
-                            // Calculate the diffused velocity from each velocity source
-                            // The diffusion decreases with distance and iterations
                             foreach (var source in velocitySources)
                             {
-                                // Calculate distance from current z position to the velocity source
-                                float distanceSq = System.Numerics.Vector3.DistanceSquared(z, source.position); // Use squared distance
+                                float distanceSq = System.Numerics.Vector3.DistanceSquared(z, source.position);
                                 float distance = MathF.Sqrt(distanceSq);
 
-
-                                // Apply velocity diffusion along fractal edges
-                                // Velocity decreases with distance and iterations
-                                if (distance < 2.0f) // Only sources within a reasonable distance contribute
+                                if (distance < 2.0f)
                                 {
                                     float contribution = source.velocity *
-                                                         MathF.Exp(-distance * 2.0f) * // Exponential falloff with distance
-                                                         MathF.Exp(-iterations * 0.1f); // Exponential falloff with iterations
+                                                       MathF.Exp(-distance * 2.0f) *
+                                                       MathF.Exp(-iterations * 0.1f);
 
                                     diffusedVelocity += contribution;
-                                    if (sampleContributions[sampleIndex].ContainsKey(source.source)) // Check if source exists
+                                    if (sampleContributions[sampleIndex].ContainsKey(source.source))
                                     {
                                         sampleContributions[sampleIndex][source.source] += contribution;
                                     }
@@ -3529,12 +3564,10 @@ namespace Agentic_Mod
                                         sampleContributions[sampleIndex][source.source] = contribution;
                                     }
 
-
                                     Console.WriteLine($"  Contribution from {source.source}: {contribution:F6} (distance: {distance:F4})");
                                 }
                             }
 
-                            // Standard Mandelbulb formula calculation
                             float theta = (r < 1e-6f) ? 0 : MathF.Acos(z.Z / r);
                             float phi = MathF.Atan2(z.Y, z.X);
 
@@ -3542,14 +3575,12 @@ namespace Agentic_Mod
                             float newTheta = Power * theta;
                             float newPhi = Power * phi;
 
-                            // Calculate the next z value
                             z = new System.Numerics.Vector3(
                                 newR * MathF.Sin(newTheta) * MathF.Cos(newPhi),
                                 newR * MathF.Sin(newTheta) * MathF.Sin(newPhi),
                                 newR * MathF.Cos(newTheta)) + c;
                         }
 
-                        // Store the results for this sample
                         sampleValues[sampleIndex] = z;
                         sampleIterations[sampleIndex] = iterations;
                         sampleVelocities[sampleIndex] = diffusedVelocity;
@@ -3566,16 +3597,11 @@ namespace Agentic_Mod
                         }
                     }
 
-                    //------------------------------------------
-                    // STORE ANALYSIS RESULTS
-                    //------------------------------------------
-                    // Store intersection velocities
                     unitResultsStore["ProductXPlaneVelocity"] = productXPlaneVelocity;
                     unitResultsStore["ProductYPlaneVelocity"] = productYPlaneVelocity;
                     unitResultsStore["ServiceXPlaneVelocity"] = serviceXPlaneVelocity;
                     unitResultsStore["ServiceYPlaneVelocity"] = serviceYPlaneVelocity;
 
-                    // Store each sample's data
                     for (int i = 0; i < 5; i++)
                     {
                         unitResultsStore[$"Sample{i + 1}Coordinate"] = samplePoints[i];
@@ -3583,25 +3609,20 @@ namespace Agentic_Mod
                         unitResultsStore[$"Sample{i + 1}Iterations"] = sampleIterations[i];
                         unitResultsStore[$"Sample{i + 1}Velocity"] = sampleVelocities[i];
 
-                        // Store individual contributions
                         foreach (var source in velocitySources)
                         {
                             if (sampleContributions[i].ContainsKey(source.source))
-                                unitResultsStore[$"Sample{i + 1}_{source.source}Contribution"] =
-                                sampleContributions[i][source.source];
+                                unitResultsStore[$"Sample{i + 1}_{source.source}Contribution"] = sampleContributions[i][source.source];
                             else
-                                unitResultsStore[$"Sample{i + 1}_{source.source}Contribution"] = 0.0f; // Ensure key exists with default 0
+                                unitResultsStore[$"Sample{i + 1}_{source.source}Contribution"] = 0.0f;
                         }
                     }
 
-                    // Step 6.1: Generate a result string summarizing the optimization analysis.
                     System.Text.StringBuilder resultBuilder = new System.Text.StringBuilder();
                     resultBuilder.Append($"OptimizationAnalysis_Cust_{custId}");
 
-                    // Add velocity information
                     resultBuilder.Append("_V[");
                     bool firstVelocity = true;
-                    // Only append if velocity is non-zero (using tolerance) or intersection exists
                     if (productXPlaneVelocity > 1e-6f || productXPlaneIntersection != null)
                     {
                         resultBuilder.Append($"PX:{productXPlaneVelocity:F3}");
@@ -3626,13 +3647,11 @@ namespace Agentic_Mod
                     }
                     resultBuilder.Append("]");
 
-
-                    // Add sample information
                     resultBuilder.Append("_S[");
                     for (int i = 0; i < 5; i++)
                     {
                         string status = sampleIterations[i] >= MaxIterations ? "InSet" : $"Escaped({sampleIterations[i]})";
-                        resultBuilder.Append($"P{i + 1}:{sampleVelocities[i]:F4}_S{status}"); // Appended 'S' to status, Renamed Sample to P for Point
+                        resultBuilder.Append($"P{i + 1}:{sampleVelocities[i]:F4}_S{status}");
                         if (i < 4) resultBuilder.Append(",");
                     }
                     resultBuilder.Append("]");
@@ -3643,16 +3662,19 @@ namespace Agentic_Mod
                     return result;
                 }
 
-
                 //==========================================================================
                 // Step 7: Tensor Network Training with Curvature Embedding (Includes Actual TF.NET)
+                // PROLIFERATION TRAINING PROCESS:
+                // 1. Initial expression "1+P" gets converted to N-dimensional formula
+                // 2. During each training epoch, proliferation instance P increments
+                // 3. N-dimensional embedding is computed for each batch with current P value
+                // 4. Expression influences vertex masks, curvature coefficients, and weight generation
+                // 5. Formula proliferates through the network during training iterations
                 //==========================================================================
-
                 string Stage7_TensorNetworkTraining(string optimizationResult, int custId, ConcurrentDictionary<string, object> resultsStore)
                 {
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 7 - Training tensor network for customer {custId} using Actual TF.NET Model A.");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 7 - Training tensor network for customer {custId} using Actual TF.NET Model A with PROLIFERATION.");
 
-                    // Disable eager execution before defining any TensorFlow operations
                     tf.compat.v1.disable_eager_execution();
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Disabled eager execution for TensorFlow operations.");
 
@@ -3667,11 +3689,11 @@ namespace Agentic_Mod
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Creating sample training data.");
                     float[][] numericalSamples = new float[][] {
-                        new float[] { 0.3f, 0.7f, 0.1f, 0.85f }, new float[] { 0.5f, 0.2f, 0.9f, 0.35f }, new float[] { 0.8f, 0.6f, 0.4f, 0.55f }, new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
-                        new float[] { 0.7f, 0.3f, 0.2f, 0.95f }, new float[] { 0.4f, 0.5f, 0.7f, 0.65f }, new float[] { 0.2f, 0.9f, 0.3f, 0.15f }, new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
-                        new float[] { 0.35f, 0.65f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.85f, 0.30f }, new float[] { 0.75f, 0.55f, 0.45f, 0.60f }, new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
-                        new float[] { 0.65f, 0.35f, 0.25f, 0.90f }, new float[] { 0.45f, 0.45f, 0.65f, 0.70f }, new float[] { 0.25f, 0.85f, 0.35f, 0.10f }, new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
-                    };
+                new float[] { 0.3f, 0.7f, 0.1f, 0.85f }, new float[] { 0.5f, 0.2f, 0.9f, 0.35f }, new float[] { 0.8f, 0.6f, 0.4f, 0.55f }, new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
+                new float[] { 0.7f, 0.3f, 0.2f, 0.95f }, new float[] { 0.4f, 0.5f, 0.7f, 0.65f }, new float[] { 0.2f, 0.9f, 0.3f, 0.15f }, new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
+                new float[] { 0.35f, 0.65f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.85f, 0.30f }, new float[] { 0.75f, 0.55f, 0.45f, 0.60f }, new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
+                new float[] { 0.65f, 0.35f, 0.25f, 0.90f }, new float[] { 0.45f, 0.45f, 0.65f, 0.70f }, new float[] { 0.25f, 0.85f, 0.35f, 0.10f }, new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
+            };
                     float[] numericalLabels = new float[numericalSamples.Length];
                     for (int i = 0; i < numericalSamples.Length; i++)
                     {
@@ -3680,10 +3702,10 @@ namespace Agentic_Mod
                         numericalLabels[i] = x * (float)Math.Cos(p) + y * (float)Math.Sin(p) + z * (float)Math.Cos(p / 2f) + x * y * z * 0.1f;
                     }
                     string[] wordSamples = new string[] {
-                        "market growth potential high", "customer satisfaction excellent", "product quality superior", "service delivery timely", "price competitiveness average", "brand recognition strong",
-                        "operational efficiency optimal", "supply chain resilient", "market segment expanding", "customer retention excellent", "product innovation substantial", "service response immediate",
-                        "price positioning competitive", "brand loyalty increasing", "operational costs decreasing", "supply reliability consistent"
-                    };
+                "market growth potential high", "customer satisfaction excellent", "product quality superior", "service delivery timely", "price competitiveness average", "brand recognition strong",
+                "operational efficiency optimal", "supply chain resilient", "market segment expanding", "customer retention excellent", "product innovation substantial", "service response immediate",
+                "price positioning competitive", "brand loyalty increasing", "operational costs decreasing", "supply reliability consistent"
+            };
                     float[][] wordEmbeddings = TransformWordsToEmbeddings(wordSamples);
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Created {numericalSamples.Length} numerical samples and {wordSamples.Length} word-based samples.");
 
@@ -3710,16 +3732,18 @@ namespace Agentic_Mod
                     int numBatches = (actualBatchSize > 0) ? (int)Math.Ceiling((double)dataSize / actualBatchSize) : 0;
                     int[] indices = Enumerable.Range(0, dataSize).ToArray();
 
-                    string initialExpression = "1+1";
-                    string regexPattern = ConvertExpressionToRegex(initialExpression);
-                    string nDimensionalExpression = ConvertRegexToNDimensionalExpression(regexPattern);
+                    // === PROLIFERATION INITIALIZATION ===
+                    // Start with expression "1+P" where P will proliferate during training
+                    string initialExpression = "1+P"; // Changed from "1+1" to "1+P" for proliferation
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === PROLIFERATION PROCESS BEGINS ===");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Initial expression: {initialExpression}");
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                        modelAGraph = tf.Graph(); // Initialize graph for Model A
-                        modelAGraph.as_default(); // Set as default graph for operation creation
+                        modelAGraph = tf.Graph();
+                        modelAGraph.as_default();
                         {
-                            modelASession = tf.Session(modelAGraph); // Create session with Model A's graph
+                            modelASession = tf.Session(modelAGraph);
                             try
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Initializing Model A Architecture in its own graph.");
@@ -3734,62 +3758,181 @@ namespace Agentic_Mod
                                 }
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A architecture parameters: Input Feats: {totalInputFeatureCount}, Hidden Size: {unitCHiddenSize}");
 
-                                float[,] modelAWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, unitCHiddenSize);
-                                float[,] modelAWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, unitCHiddenSize, 1);
+                                // Initial proliferation instance starts at 1
+                                int initialProliferationInstance = 1;
+                                string regexPattern = ConvertExpressionToRegex(initialExpression);
+                                string nDimensionalExpression = ConvertRegexToNDimensionalExpression(regexPattern, initialProliferationInstance);
 
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Model A.");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] STEP 1→2: Expression '{initialExpression}' → Regex '{regexPattern}' → N-Dim '{nDimensionalExpression}'");
+
+                                // Generate initial weights with proliferation
+                                float[,] modelAWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, unitCHiddenSize, initialProliferationInstance);
+                                float[,] modelAWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, unitCHiddenSize, 1, initialProliferationInstance);
+
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Model A with proliferation support.");
                                 Tensor numericalInput = tf.placeholder(tf.float32, shape: new int[] { -1, numericalFeatureCount }, name: "numerical_input_A");
                                 Tensor wordInput = tf.placeholder(tf.float32, shape: new int[] { -1, wordFeatureCount }, name: "word_input_A");
                                 Tensor targetOutput = tf.placeholder(tf.float32, shape: new int[] { -1, 1 }, name: "target_output_A");
                                 Tensor combinedInput = tf.concat(new[] { numericalInput, wordInput }, axis: 1, name: "combined_input_A");
-                                ResourceVariable weights1 = tf.Variable(tf.constant(modelAWeights1Data, dtype: tf.float32), name: "weights1_A");
+
+                                // Add N-dimensional embedding input for proliferation
+                                Tensor ndEmbeddingInput = tf.placeholder(tf.float32, shape: new int[] { -1, 16 }, name: "nd_embedding_input_A");
+                                Tensor extendedInput = tf.concat(new[] { combinedInput, ndEmbeddingInput }, axis: 1, name: "extended_input_A");
+
+                                // Adjust weight dimensions for extended input
+                                int extendedInputSize = totalInputFeatureCount + 16; // Add 16 for N-dimensional embedding
+                                float[,] extendedWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, extendedInputSize, unitCHiddenSize, initialProliferationInstance);
+
+                                ResourceVariable weights1 = tf.Variable(tf.constant(extendedWeights1Data, dtype: tf.float32), name: "weights1_A");
                                 ResourceVariable bias1 = tf.Variable(tf.zeros(unitCHiddenSize, dtype: tf.float32), name: "bias1_A");
                                 ResourceVariable weights2 = tf.Variable(tf.constant(modelAWeights2Data, dtype: tf.float32), name: "weights2_A");
                                 ResourceVariable bias2 = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_A");
-                                Tensor hidden = tf.nn.relu(tf.add(tf.matmul(combinedInput, weights1), bias1), name: "hidden_A");
-                                Tensor predictions = tf.add(tf.matmul(hidden, weights2), bias2, name: "predictions_A");
+
+                                Tensor hidden = tf.nn.relu(tf.add(tf.matmul(extendedInput, weights1), bias1), name: "hidden_A");
+
+                                // STEP 6: Apply vertex mask with proliferation to hidden layer
+                                Tensor vertexMask = CalculateOutermostVertexMask(hidden, initialProliferationInstance);
+                                Tensor maskedHidden = tf.multiply(hidden, vertexMask, name: "masked_hidden_A");
+
+                                Tensor predictions = tf.add(tf.matmul(maskedHidden, weights2), bias2, name: "predictions_A");
                                 Tensor loss = tf.reduce_mean(tf.square(tf.subtract(predictions, targetOutput)), name: "mse_loss_A");
                                 var optimizer = tf.train.AdamOptimizer(0.001f);
                                 Operation trainOp = optimizer.minimize(loss);
                                 Tensor meanAbsError = tf.reduce_mean(tf.abs(tf.subtract(predictions, targetOutput)), name: "mae_A");
                                 Operation initOp = tf.global_variables_initializer();
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Model A.");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Model A with proliferation.");
 
-                                modelASession.run(initOp); // Initialize variables within the correct session
+                                modelASession.run(initOp);
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A - Actual TensorFlow.NET variables initialized in its own session.");
 
-                                var trainingDataFeed = new FeedItem[] {
-                                    new FeedItem(numericalInput, numericalData), new FeedItem(wordInput, wordData), new FeedItem(targetOutput, targetValues)
-                                };
+                                // === PROLIFERATION TRAINING LOOP ===
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === BEGINNING PROLIFERATION TRAINING ===");
 
                                 for (int epoch = 0; epoch < numEpochs; epoch++)
                                 {
-                                    ShuffleArray(indices); float epochLoss = 0.0f;
+                                    // PROLIFERATION: Calculate current proliferation instance
+                                    // P starts at 1 and increases every 10 epochs
+                                    int currentProliferationInstance = 1 + (epoch / 10);
+
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === EPOCH {epoch + 1}/{numEpochs} - PROLIFERATION INSTANCE P={currentProliferationInstance} ===");
+
+                                    // STEP 2: Generate new N-dimensional expression for current proliferation
+                                    string currentRegexPattern = ConvertExpressionToRegex(initialExpression);
+                                    string currentNDExpression = ConvertRegexToNDimensionalExpression(currentRegexPattern, currentProliferationInstance);
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Current N-Dimensional Expression: {currentNDExpression}");
+
+                                    ShuffleArray(indices);
+                                    float epochLoss = 0.0f;
+
                                     for (int batch = 0; batch < numBatches; batch++)
                                     {
-                                        int startIdx = batch * actualBatchSize; int endIdx = Math.Min(startIdx + actualBatchSize, dataSize); int batchCount = endIdx - startIdx; if (batchCount <= 0) continue;
-                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount); float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount); float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+                                        int startIdx = batch * actualBatchSize;
+                                        int endIdx = Math.Min(startIdx + actualBatchSize, dataSize);
+                                        int batchCount = endIdx - startIdx;
+                                        if (batchCount <= 0) continue;
+
+                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount);
+                                        float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount);
+                                        float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+
+                                        // STEP 3: Compute N-dimensional embedding for current batch with current proliferation
+                                        float[,] batchCombined = new float[batchCount, numericalFeatureCount + wordFeatureCount];
+                                        for (int i = 0; i < batchCount; i++)
+                                        {
+                                            for (int j = 0; j < numericalFeatureCount; j++)
+                                            {
+                                                batchCombined[i, j] = batchNumerical[i, j];
+                                            }
+                                            for (int j = 0; j < wordFeatureCount; j++)
+                                            {
+                                                batchCombined[i, numericalFeatureCount + j] = batchWord[i, j];
+                                            }
+                                        }
+
+                                        // PROLIFERATION: Compute N-dimensional embedding with current P value
+                                        float[,] ndEmbedding = ComputeNDimensionalEmbedding(batchCombined, currentProliferationInstance, 16);
+
                                         var batchFeed = new FeedItem[] {
-                                            new FeedItem(numericalInput, batchNumerical), new FeedItem(wordInput, batchWord), new FeedItem(targetOutput, batchTarget)
-                                        };
-                                        var results = modelASession.run(new ITensorOrOperation[] { loss, trainOp }, batchFeed); // Use modelASession
+                                    new FeedItem(numericalInput, batchNumerical),
+                                    new FeedItem(wordInput, batchWord),
+                                    new FeedItem(ndEmbeddingInput, ndEmbedding), // Include N-dimensional embedding
+                                    new FeedItem(targetOutput, batchTarget)
+                                };
+
+                                        var results = modelASession.run(new ITensorOrOperation[] { loss, trainOp }, batchFeed);
                                         float batchLossValue = ((Tensor)results[0]).numpy().ToArray<float>()[0];
                                         epochLoss += batchLossValue;
-                                        if (batch % 5 == 0 || batch == numBatches - 1) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, Batch Loss: {batchLossValue:F6}");
+
+                                        if (batch % 5 == 0 || batch == numBatches - 1)
+                                        {
+                                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, P={currentProliferationInstance}, Batch Loss: {batchLossValue:F6}");
+                                        }
                                     }
-                                    if (numBatches > 0) epochLoss /= numBatches; else epochLoss = float.NaN;
+
+                                    if (numBatches > 0) epochLoss /= numBatches;
+                                    else epochLoss = float.NaN;
                                     trainingLosses.Add(epochLoss);
+
                                     if (epoch % 10 == 0 || epoch == numEpochs - 1)
                                     {
-                                        var evalResults = modelASession.run(new ITensorOrOperation[] { meanAbsError }, trainingDataFeed); // Use modelASession
+                                        // Evaluate with current proliferation instance
+                                        float[,] fullCombined = new float[dataSize, numericalFeatureCount + wordFeatureCount];
+                                        for (int i = 0; i < dataSize; i++)
+                                        {
+                                            for (int j = 0; j < numericalFeatureCount; j++)
+                                            {
+                                                fullCombined[i, j] = numericalData[i, j];
+                                            }
+                                            for (int j = 0; j < wordFeatureCount; j++)
+                                            {
+                                                fullCombined[i, numericalFeatureCount + j] = wordData[i, j];
+                                            }
+                                        }
+
+                                        float[,] evalNdEmbedding = ComputeNDimensionalEmbedding(fullCombined, currentProliferationInstance, 16);
+
+                                        var trainingDataFeed = new FeedItem[] {
+                                    new FeedItem(numericalInput, numericalData),
+                                    new FeedItem(wordInput, wordData),
+                                    new FeedItem(ndEmbeddingInput, evalNdEmbedding),
+                                    new FeedItem(targetOutput, targetValues)
+                                };
+
+                                        var evalResults = modelASession.run(new ITensorOrOperation[] { meanAbsError }, trainingDataFeed);
                                         float currentErrorValue = ((Tensor)evalResults[0]).numpy().ToArray<float>()[0];
                                         trainingErrors.Add(currentErrorValue);
-                                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Loss: {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error: {currentErrorValue:F6}");
+                                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, P={currentProliferationInstance}, Average Loss: {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error: {currentErrorValue:F6}");
                                     }
                                 }
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A training completed");
 
-                                var finalResults = modelASession.run(new ITensorOrOperation[] { meanAbsError, predictions }, trainingDataFeed); // Use modelASession
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === PROLIFERATION TRAINING COMPLETED ===");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A training completed - Expression '1+P' proliferated through {numEpochs} epochs");
+
+                                // Final evaluation with the last proliferation instance
+                                int finalProliferationInstance = 1 + ((numEpochs - 1) / 10);
+                                float[,] finalCombined = new float[dataSize, numericalFeatureCount + wordFeatureCount];
+                                for (int i = 0; i < dataSize; i++)
+                                {
+                                    for (int j = 0; j < numericalFeatureCount; j++)
+                                    {
+                                        finalCombined[i, j] = numericalData[i, j];
+                                    }
+                                    for (int j = 0; j < wordFeatureCount; j++)
+                                    {
+                                        finalCombined[i, numericalFeatureCount + j] = wordData[i, j];
+                                    }
+                                }
+
+                                float[,] finalNdEmbedding = ComputeNDimensionalEmbedding(finalCombined, finalProliferationInstance, 16);
+
+                                var finalTrainingDataFeed = new FeedItem[] {
+                            new FeedItem(numericalInput, numericalData),
+                            new FeedItem(wordInput, wordData),
+                            new FeedItem(ndEmbeddingInput, finalNdEmbedding),
+                            new FeedItem(targetOutput, targetValues)
+                        };
+
+                                var finalResults = modelASession.run(new ITensorOrOperation[] { meanAbsError, predictions }, finalTrainingDataFeed);
                                 float finalErrorValue = ((Tensor)finalResults[0]).numpy().ToArray<float>()[0];
                                 Tensor finalPredictionsTensor = (Tensor)finalResults[1];
                                 float[] finalPredictionsFlat = finalPredictionsTensor.ToArray<float>();
@@ -3798,62 +3941,93 @@ namespace Agentic_Mod
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Predictions Shape: {string.Join(",", finalPredictionsDims)}");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat.Take(Math.Min(finalPredictionsFlat.Length, 10)).Select(p => p.ToString("F4")))}...]");
 
-                                var finalParams = modelASession.run(new ITensorOrOperation[] { weights1.AsTensor(), bias1.AsTensor(), weights2.AsTensor(), bias2.AsTensor() }); // Use modelASession
-                                var finalWeights1 = ((Tensor)finalParams[0]).ToArray<float>(); var finalBias1 = ((Tensor)finalParams[1]).ToArray<float>();
-                                var finalWeights2 = ((Tensor)finalParams[2]).ToArray<float>(); var finalBias2 = ((Tensor)finalParams[3]).ToArray<float>();
-                                byte[] trainedWeights1Bytes = SerializeFloatArray(finalWeights1); byte[] trainedBias1Bytes = SerializeFloatArray(finalBias1);
-                                byte[] trainedWeights2Bytes = SerializeFloatArray(finalWeights2); byte[] trainedBias2Bytes = SerializeFloatArray(finalBias2);
+                                var finalParams = modelASession.run(new ITensorOrOperation[] { weights1.AsTensor(), bias1.AsTensor(), weights2.AsTensor(), bias2.AsTensor() });
+                                var finalWeights1 = ((Tensor)finalParams[0]).ToArray<float>();
+                                var finalBias1 = ((Tensor)finalParams[1]).ToArray<float>();
+                                var finalWeights2 = ((Tensor)finalParams[2]).ToArray<float>();
+                                var finalBias2 = ((Tensor)finalParams[3]).ToArray<float>();
+
+                                byte[] trainedWeights1Bytes = SerializeFloatArray(finalWeights1);
+                                byte[] trainedBias1Bytes = SerializeFloatArray(finalBias1);
+                                byte[] trainedWeights2Bytes = SerializeFloatArray(finalWeights2);
+                                byte[] trainedBias2Bytes = SerializeFloatArray(finalBias2);
+
                                 var byteArraysToCombine = new List<byte[]>();
-                                if (trainedWeights1Bytes != null) byteArraysToCombine.Add(trainedWeights1Bytes); if (trainedBias1Bytes != null) byteArraysToCombine.Add(trainedBias1Bytes);
-                                if (trainedWeights2Bytes != null) byteArraysToCombine.Add(trainedWeights2Bytes); if (trainedBias2Bytes != null) byteArraysToCombine.Add(trainedBias2Bytes);
+                                if (trainedWeights1Bytes != null) byteArraysToCombine.Add(trainedWeights1Bytes);
+                                if (trainedBias1Bytes != null) byteArraysToCombine.Add(trainedBias1Bytes);
+                                if (trainedWeights2Bytes != null) byteArraysToCombine.Add(trainedWeights2Bytes);
+                                if (trainedBias2Bytes != null) byteArraysToCombine.Add(trainedBias2Bytes);
                                 byte[] combinedModelAData = byteArraysToCombine.SelectMany(arr => arr).ToArray();
 
                                 if (finalPredictionsFlat != null && finalPredictionsFlat.Length > 0)
                                 {
-                                    resultsStore["ModelAPredictionsFlat"] = finalPredictionsFlat; resultsStore["ModelAPredictionsShape"] = finalPredictionsDims;
+                                    resultsStore["ModelAPredictionsFlat"] = finalPredictionsFlat;
+                                    resultsStore["ModelAPredictionsShape"] = finalPredictionsDims;
                                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Predictions stored in results dictionary ({finalPredictionsFlat.Length} values)");
                                 }
-                                else { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] WARNING: Model A failed to produce predictions to store"); }
+                                else
+                                {
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] WARNING: Model A failed to produce predictions to store");
+                                }
 
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A Final Mean Absolute Error: {finalErrorValue:F6}");
                                 float modelAOutcomeScore = Math.Max(0.0f, 1.0f - finalErrorValue / 0.5f);
-                                resultsStore["ModelAProcessingOutcome"] = modelAOutcomeScore; resultsStore["ModelATrainingError"] = finalErrorValue;
-                                resultsStore["ModelATrainingLosses"] = trainingLosses.ToArray(); resultsStore["ModelATrainingErrors"] = trainingErrors.ToArray();
+                                resultsStore["ModelAProcessingOutcome"] = modelAOutcomeScore;
+                                resultsStore["ModelATrainingError"] = finalErrorValue;
+                                resultsStore["ModelATrainingLosses"] = trainingLosses.ToArray();
+                                resultsStore["ModelATrainingErrors"] = trainingErrors.ToArray();
                                 resultsStore["ModelACombinedParameters"] = combinedModelAData;
+                                resultsStore["ModelAFinalProliferationInstance"] = finalProliferationInstance;
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model A results dictionary populated with {resultsStore.Count} entries");
 
                                 var modelMetadata = new Dictionary<string, object> {
-                                    { "EmbeddedExpression", initialExpression }, { "NDimensionalExpression", nDimensionalExpression }, { "TrainingEpochs", numEpochs }, { "FinalMeanAbsoluteError", finalErrorValue },
-                                    { "TotalInputFeatureCount", totalInputFeatureCount }, { "HiddenLayerSize", unitCHiddenSize }, { "TrainingSampleCount", dataSize }, { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
-                                    { "CurvatureEigenvalues", eigenvalues }, { "HasOutermostVertexFocus", true }, { "UsesNDimensionalIterations", true }
-                                };
-                                string metadataJson = SerializeMetadata(modelMetadata); byte[] metadataBytes = System.Text.Encoding.UTF8.GetBytes(metadataJson);
+                            { "EmbeddedExpression", initialExpression },
+                            { "NDimensionalExpression", nDimensionalExpression },
+                            { "TrainingEpochs", numEpochs },
+                            { "FinalMeanAbsoluteError", finalErrorValue },
+                            { "TotalInputFeatureCount", totalInputFeatureCount },
+                            { "HiddenLayerSize", unitCHiddenSize },
+                            { "TrainingSampleCount", dataSize },
+                            { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
+                            { "CurvatureEigenvalues", eigenvalues },
+                            { "HasOutermostVertexFocus", true },
+                            { "UsesNDimensionalIterations", true },
+                            { "FinalProliferationInstance", finalProliferationInstance },
+                            { "ProliferationEnabled", true }
+                        };
+                                string metadataJson = SerializeMetadata(modelMetadata);
+                                byte[] metadataBytes = System.Text.Encoding.UTF8.GetBytes(metadataJson);
                                 resultsStore["ModelAMetadata"] = metadataBytes;
-                                RuntimeProcessingContext.StoreContextValue("model_a_params_combined", combinedModelAData); RuntimeProcessingContext.StoreContextValue("model_a_metadata", metadataBytes);
-                                RuntimeProcessingContext.StoreContextValue("model_a_expression", initialExpression); RuntimeProcessingContext.StoreContextValue("model_a_expression_nd", nDimensionalExpression);
+                                RuntimeProcessingContext.StoreContextValue("model_a_params_combined", combinedModelAData);
+                                RuntimeProcessingContext.StoreContextValue("model_a_metadata", metadataBytes);
+                                RuntimeProcessingContext.StoreContextValue("model_a_expression", initialExpression);
+                                RuntimeProcessingContext.StoreContextValue("model_a_expression_nd", nDimensionalExpression);
+                                RuntimeProcessingContext.StoreContextValue("model_a_final_proliferation", finalProliferationInstance);
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Model A parameters saved to RuntimeContext (Size: {combinedModelAData?.Length ?? 0} bytes)");
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Model A trained and saved to RuntimeProcessingContext and Results Store.");
-                                string result = $"TensorNetworkTrained_Cust_{custId}_MAE{finalErrorValue:F4}_Expr({initialExpression.Replace('+', 'p')})";
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Model A trained and saved to RuntimeProcessingContext and Results Store with final proliferation instance: {finalProliferationInstance}");
+
+                                string result = $"TensorNetworkTrained_Cust_{custId}_MAE{finalErrorValue:F4}_Expr({initialExpression.Replace('+', 'p')})_FinalP{finalProliferationInstance}";
                                 return result;
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during Step 7 - Tensor Network Training (Model A Graph Context): {ex.Message}");
-                                resultsStore["ModelAProcessingError"] = "Model A Training Error: " + ex.Message; resultsStore["ModelAProcessingOutcome"] = 0.0f; resultsStore["ModelATrainingError"] = float.NaN;
+                                resultsStore["ModelAProcessingError"] = "Model A Training Error: " + ex.Message;
+                                resultsStore["ModelAProcessingOutcome"] = 0.0f;
+                                resultsStore["ModelATrainingError"] = float.NaN;
                                 throw new InvalidOperationException($"Model A training failed: {ex.Message}", ex);
                             }
-                        } // End of modelAGraph.as_default()
+                        }
                     }
                     else
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 - Missing initial model parameters from Unit C for Model A training. Skipping training.");
-                        resultsStore["ModelAProcessingWarning"] = "Missing initial parameters from Unit C for training."; resultsStore["ModelAProcessingOutcome"] = 0.1f; resultsStore["ModelATrainingError"] = float.NaN;
+                        resultsStore["ModelAProcessingWarning"] = "Missing initial parameters from Unit C for training.";
+                        resultsStore["ModelAProcessingOutcome"] = 0.1f;
+                        resultsStore["ModelATrainingError"] = float.NaN;
                         return $"TensorNetworkTrainingSkipped_Cust_{custId}_MissingData";
                     }
                 }
-
-
-
 
                 //==========================================================================
                 // Step 8: Future Performance Projection
@@ -3862,114 +4036,89 @@ namespace Agentic_Mod
                 {
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 8 - Generating future performance projection for customer {custId}.");
 
-                    //------------------------------------------
-                    // Retrieve Results (from Step 5 & 7)
-                    //------------------------------------------
-                    // Retrieve the evaluation score from Step 5
                     float combinedFeatureEvaluationScore = unitResultsStore.TryGetValue("CombinedEvaluationScore", out var evalScore)
-                        ? Convert.ToSingle(evalScore) : evaluationScore; // Use Step 5 score
+                        ? Convert.ToSingle(evalScore) : evaluationScore;
 
-                    // Retrieve the Model A training outcome score (mapping of MAE) from Step 7
                     float modelATrainingOutcomeScore = unitResultsStore.TryGetValue("ModelAProcessingOutcome", out var maeScore)
-                        ? Convert.ToSingle(maeScore) : 0.0f; // Default to 0 if training outcome isn't stored
+                        ? Convert.ToSingle(maeScore) : 0.0f;
 
-                    // Retrieve the actual training error from Step 7
                     float modelATrainingError = unitResultsStore.TryGetValue("ModelATrainingError", out var maeError)
                         && maeError is float maeFloat ? maeFloat : float.NaN;
 
-
-                    // Get combined parameters from Model A (from Step 7)
                     byte[]? modelACombinedParams = unitResultsStore.TryGetValue("ModelACombinedParameters", out var maParams)
                         ? maParams as byte[] : null;
 
-                    //------------------------------------------
-                    // Perform Projection Calculation
-                    //------------------------------------------
-                    // Simple simulation logic based on previous stage outcomes
+                    int finalProliferationInstance = unitResultsStore.TryGetValue("ModelAFinalProliferationInstance", out var fpi)
+                        ? Convert.ToInt32(fpi) : 1;
+
                     string projectionOutcome = "Stable";
-                    // Base projection on the evaluation score, adjusted by training outcome
-                    float projectedScore = (combinedFeatureEvaluationScore + modelATrainingOutcomeScore) / 2.0f; // Average the scores
+                    float projectedScore = (combinedFeatureEvaluationScore + modelATrainingOutcomeScore) / 2.0f;
 
+                    // Factor in proliferation instance for projection
+                    float proliferationBonus = (finalProliferationInstance - 1) * 0.02f; // Small bonus for higher proliferation
+                    projectedScore = Math.Min(projectedScore + proliferationBonus, 1.0f);
 
-                    // Adjust projection based on training error and parameter complexity
-                    if (!float.IsNaN(modelATrainingError)) // Only use training error if available
+                    if (!float.IsNaN(modelATrainingError))
                     {
                         if (modelATrainingError < 0.05f)
                         {
-                            projectionOutcome = "StrongGrowth";
-                            projectedScore = Math.Min(projectedScore + 0.1f, 1.0f); // Add bonus for low training error
+                            projectionOutcome = "StrongGrowth_HighProliferation";
+                            projectedScore = Math.Min(projectedScore + 0.1f, 1.0f);
                         }
                         else if (modelATrainingError > 0.2f)
                         {
                             projectionOutcome = "PotentialChallenges";
-                            projectedScore = Math.Max(projectedScore - 0.05f, 0.0f); // Deduct for high training error
+                            projectedScore = Math.Max(projectedScore - 0.05f, 0.0f);
                         }
                     }
                     else
                     {
                         projectionOutcome = "TrainingDataUnavailable";
-                        projectedScore = projectedScore; // Keep original average
                     }
 
-
-                    // Consider parameter size as a proxy for model complexity/stability - might indicate overfitting if error is high
-                    if (modelACombinedParams != null && modelACombinedParams.Length > 1000) // Arbitrary threshold for complexity
+                    if (modelACombinedParams != null && modelACombinedParams.Length > 1000)
                     {
                         projectionOutcome += "_ComplexModel";
-                        // If error is low, complexity is good; if error is high, complexity is bad (potential overfitting)
-                        if (!float.IsNaN(modelATrainingError)) // Only apply complexity modifier if training error is available
+                        if (!float.IsNaN(modelATrainingError))
                         {
                             if (modelATrainingError < 0.1f)
                             {
-                                projectedScore = Math.Min(projectedScore + 0.03f, 1.0f); // Small bonus for effective complexity
+                                projectedScore = Math.Min(projectedScore + 0.03f, 1.0f);
                             }
                             else if (modelATrainingError > 0.3f)
                             {
-                                projectedScore = Math.Max(projectedScore - 0.03f, 0.0f); // Small penalty for ineffective complexity
+                                projectedScore = Math.Max(projectedScore - 0.03f, 0.0f);
                             }
                         }
                     }
 
-                    // Ensure score is within valid bounds [0, 1]
                     projectedScore = Math.Max(0.0f, Math.Min(1.0f, projectedScore));
-
-
-                    // Set the final score for workflow orchestrator (used by ExecuteProductionWorkflow)
                     unitResultsStore["ProjectedPerformanceScore"] = projectedScore;
 
-                    // Step 8.1: Generate a result string summarizing the projection.
-                    string result = $"PerformanceProjection_Cust_{custId}_Outcome_{projectionOutcome}_Score_{projectedScore:F4}_TrainError_{(float.IsNaN(modelATrainingError) ? "N/A" : modelATrainingError.ToString("F4"))}"; // Include NA for error if not available
+                    string result = $"PerformanceProjection_Cust_{custId}_Outcome_{projectionOutcome}_Score_{projectedScore:F4}_TrainError_{(float.IsNaN(modelATrainingError) ? "N/A" : modelATrainingError.ToString("F4"))}_FinalP{finalProliferationInstance}";
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 8 - Future performance projection completed: {result}");
                     return result;
                 }
 
+                #endregion
 
                 //==========================================================================
                 // Workflow Execution
                 //==========================================================================
-                // Execute the entire workflow through the orchestrator function.
-                var workflowResult = ExecuteProductionWorkflow(outcomeRecord, customerIdentifier, mlSession_param_unused); // Call the orchestrator, mlSession is passed but unused internally by Stage7
+                var workflowResult = ExecuteProductionWorkflow(outcomeRecord, customerIdentifier, mlSession_param_unused);
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Workflow completed with result: {workflowResult}");
 
-
-                // Simulate some non-ML work duration at the end of the unit.
-                await Task.Delay(250); // Simulate processing time
-
-                #endregion
+                await Task.Delay(250);
             }
             catch (Exception ex)
             {
                 //==========================================================================
                 // Error Handling
                 //==========================================================================
-                // Catch any exceptions during the execution of this processing unit.
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Error in Parallel Processing Unit A: {ex.Message}");
-                // Store error state in the results dictionary for downstream units or logging.
                 unitResultsStore["ModelAProcessingError"] = ex.Message;
-                unitResultsStore["ModelAProcessingOutcome"] = 0.0f; // Indicate failure with a low score
-
-                // Re-throw the exception so the main orchestrator method can catch it and handle the overall workflow failure.
+                unitResultsStore["ModelAProcessingOutcome"] = 0.0f;
                 throw;
             }
             finally
@@ -3982,10 +4131,6 @@ namespace Agentic_Mod
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Parallel Processing Unit A finished.");
             }
         }
-
-
-
-
 
 
 
