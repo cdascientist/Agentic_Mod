@@ -3717,7 +3717,7 @@ namespace Agentic_Mod
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
                         // modelAGraph = tf.Graph(); // This is now initialized at the method level for ParallelProcessingUnitA
-                        using (modelAGraph.as_default()) // Set as default graph for operation creation
+                        modelAGraph.as_default(); // Set as default graph for operation creation
                         {
                             // modelASession = tf.Session(modelAGraph); // This is now initialized at the method level for ParallelProcessingUnitA
                             try
@@ -5506,7 +5506,7 @@ namespace Agentic_Mod
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
                         modelBGraph = tf.Graph(); // Initialize graph for Model B
-                        using (modelBGraph.as_default()) // Set as default graph for operation creation
+                        modelBGraph.as_default(); // Set as default graph for operation creation
                         {
                             modelBSession = tf.Session(modelBGraph); // Create session with Model B's graph
                             try
