@@ -519,16 +519,15 @@ namespace Agentic_Mod
         {
             try
             {
-                // session?.close(); // Tensorflow.Session does not have a public close() method; Dispose handles it.
                 session?.Dispose();
                 session = null;
 
-                graph?.Dispose(); // Tensorflow.Graph is IDisposable
+                // Graph disposal - manual cleanup for TensorFlow.NET 0.150.0
                 graph = null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning during graph/session disposal: {ex.Message}");
+
             }
         }
 
@@ -1099,23 +1098,23 @@ namespace Agentic_Mod
                 // ------------------------------------------
                 // Define sample numerical data - using fixed samples mirroring Step 7 data
                 float[][] numericalSamples = new float[][] {
-      new float[] { 0.3f, 0.7f, 0.1f, 0.85f },
-      new float[] { 0.5f, 0.2f, 0.9f, 0.35f },
-      new float[] { 0.8f, 0.6f, 0.4f, 0.55f },
-      new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
-      new float[] { 0.7f, 0.3f, 0.2f, 0.95f },
-      new float[] { 0.4f, 0.5f, 0.7f, 0.65f },
-      new float[] { 0.2f, 0.9f, 0.3f, 0.15f },
-      new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
-      new float[] { 0.35f, 0.65f, 0.15f, 0.80f },
-      new float[] { 0.55f, 0.25f, 0.85f, 0.30f },
-      new float[] { 0.75f, 0.55f, 0.45f, 0.60f },
-      new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
-      new float[] { 0.65f, 0.35f, 0.25f, 0.90f },
-      new float[] { 0.45f, 0.45f, 0.65f, 0.70f },
-      new float[] { 0.25f, 0.85f, 0.35f, 0.10f },
-      new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
-  };
+                          new float[] { 0.3f, 0.7f, 0.1f, 0.85f },
+                          new float[] { 0.5f, 0.2f, 0.9f, 0.35f },
+                          new float[] { 0.8f, 0.6f, 0.4f, 0.55f },
+                          new float[] { 0.1f, 0.8f, 0.6f, 0.25f },
+                          new float[] { 0.7f, 0.3f, 0.2f, 0.95f },
+                          new float[] { 0.4f, 0.5f, 0.7f, 0.65f },
+                          new float[] { 0.2f, 0.9f, 0.3f, 0.15f },
+                          new float[] { 0.6f, 0.1f, 0.8f, 0.75f },
+                          new float[] { 0.35f, 0.65f, 0.15f, 0.80f },
+                          new float[] { 0.55f, 0.25f, 0.85f, 0.30f },
+                          new float[] { 0.75f, 0.55f, 0.45f, 0.60f },
+                          new float[] { 0.15f, 0.75f, 0.55f, 0.20f },
+                          new float[] { 0.65f, 0.35f, 0.25f, 0.90f },
+                          new float[] { 0.45f, 0.45f, 0.65f, 0.70f },
+                          new float[] { 0.25f, 0.85f, 0.35f, 0.10f },
+                          new float[] { 0.50f, 0.15f, 0.75f, 0.80f }
+                      };
 
                 // Define sample word samples - using fixed samples mirroring Step 7 data
                 string[] wordSamples = new string[] {
@@ -1185,7 +1184,7 @@ namespace Agentic_Mod
                     // TensorFlow Graph Definition and Training (Model C)
                     // ------------------------------------------
                     graph = tf.Graph();
-                    using (graph.as_default()) // Ensures all ops are defined on this graph
+                    graph.as_default();
                     {
                         mlSession = tf.Session(graph); // Create session with the new graph
 
