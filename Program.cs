@@ -3571,11 +3571,19 @@ namespace Agentic_Mod
                 #region Helper Methods (Required by this method for Unit B)
 
                 /// <summary>
-                /// Converts a simple mathematical expression into a regular expression pattern.
+                /// STEP 1: EXPRESSION → REGEX CONVERSION WITH PROLIFERATION (Unit B)
+                /// Converts a mathematical expression with proliferation parameter into a regular expression pattern.
+                /// The proliferation parameter P allows the expression to scale across n-dimensional space.
                 /// </summary>
                 string ConvertExpressionToRegex(string expression)
                 {
-                    // For the simple expression "2*2", create a regex pattern with capture groups
+                    // Handle the proliferated expression "2*P" where P is the proliferation parameter
+                    if (expression == "2*P")
+                    {
+                        return @"(\d+)([\+\-\*\/])(P)"; // Capture proliferation parameter
+                    }
+
+                    // Legacy support for "2*2" 
                     if (expression == "2*2")
                     {
                         return @"(\d+)([\+\-\*\/])(\d+)";
@@ -3584,22 +3592,33 @@ namespace Agentic_Mod
                     // For more complex expressions, implement a more sophisticated parser
                     string pattern = expression.Replace("2", @"(\d+)");
                     pattern = pattern.Replace("*", @"([\+\-\*\/])");
+                    pattern = pattern.Replace("P", @"(P)"); // Handle proliferation parameter
 
                     return pattern;
                 }
 
                 /// <summary>
+                /// STEP 2: REGEX → N-DIMENSIONAL EXPRESSION CONVERSION WITH PROLIFERATION (Unit B)
                 /// Converts a regular expression pattern into an n-dimensional compute-safe expression.
+                /// This is where the proliferation parameter P gets embedded into the dimensional formula.
+                /// The resulting expression will be applied to vertices and modified by curvature during training.
                 /// </summary>
-                string ConvertRegexToNDimensionalExpression(string regexPattern)
+                string ConvertRegexToNDimensionalExpression(string regexPattern, int proliferationInstance = 1)
                 {
-                    // Convert the pattern to an n-dimensional expression
-                    if (regexPattern == @"(\d+)([\+\-\*\/])(\d+)" || (regexPattern?.Contains(@"(\d+)") == true && regexPattern?.Contains(@"([\+\-\*\/])") == true)) // Added null check and boolean logic
+                    // Handle proliferated pattern "2*P" - the core of our dimensional expansion for Unit B
+                    if (regexPattern == @"(\d+)([\+\-\*\/])(P)" ||
+                        (regexPattern?.Contains(@"(\d+)") == true && regexPattern?.Contains(@"(P)") == true))
                     {
-                        // For the "2*2" -> 4 result, we want an expression that might amplify or interact
-                        // Let's map this to ND(x,y,z,p)=Vx*sin(p)+Vy*cos(p)+Vz*sin(p/2)
-                        // This is similar to Unit A but with sin/cos swapped on X/Y, and the "2*2" result
-                        // influencing amplitude or frequency, which we'll apply during weight generation.
+                        // PROLIFERATION: P becomes the instance multiplier for dimensional scaling
+                        // This formula will be applied to vertex masks and modified by curvature coefficients
+                        // Different formula for Unit B: sin/cos swapped compared to Unit A
+                        return $"ND(x,y,z,p)=Vx*sin(p*{proliferationInstance})+Vy*cos(p*{proliferationInstance})+Vz*sin(p*{proliferationInstance}/2)";
+                    }
+
+                    // Legacy pattern support
+                    if (regexPattern == @"(\d+)([\+\-\*\/])(\d+)" ||
+                        (regexPattern?.Contains(@"(\d+)") == true && regexPattern?.Contains(@"([\+\-\*\/])") == true))
+                    {
                         return "ND(x,y,z,p)=Vx*sin(p)+Vy*cos(p)+Vz*sin(p/2)";
                     }
 
@@ -3608,46 +3627,295 @@ namespace Agentic_Mod
                 }
 
                 /// <summary>
+                /// STEP 3: N-DIMENSIONAL EMBEDDING COMPUTATION WITH PROLIFERATION (Unit B)
+                /// This embedding computes the full NDimensionalClusterExecution formula in n-dimensional space
+                /// for each proliferation instance during training iterations.
+                /// PROLIFERATION IS ONLY USED HERE - for counting N-dimensional matrices, not affecting training structure.
+                /// </summary>
+                float[,] ComputeNDimensionalEmbedding(float[,] inputData, int proliferationInstance, int embeddingDimension = 16)
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Computing N-Dimensional Embedding (Unit B) with proliferation instance: {proliferationInstance}");
+
+                    if (inputData == null || inputData.GetLength(0) == 0)
+                    {
+                        return new float[1, embeddingDimension];
+                    }
+
+                    int batchSize = inputData.GetLength(0);
+                    int inputFeatures = inputData.GetLength(1);
+
+                    // Convert to double array for high-precision cluster computation
+                    double[][] dataPoints = new double[batchSize][];
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        dataPoints[i] = new double[inputFeatures];
+                        for (int j = 0; j < inputFeatures; j++)
+                        {
+                            dataPoints[i][j] = inputData[i, j];
+                        }
+                    }
+
+                    // === N-DIMENSIONAL CLUSTER EXECUTION EMBEDDING (Unit B) ===
+                    // Compute the full NDimensionalClusterExecution formula as an embedding
+
+                    // Dynamic parameters based on proliferation - ONLY affects N-dimensional matrix counting
+                    int K = Math.Min(Math.Max(3, proliferationInstance + 1), batchSize); // Different cluster count for B
+                    double r = 0.35 + (proliferationInstance * 0.12); // Different radius scaling for B
+                    int maxIter = 12 + (proliferationInstance * 3); // Different iterations for B
+
+                    // === PHASE 1: DATA PREPROCESSING WITH PROLIFERATION SCALING (Unit B) ===
+                    double[] minValues = new double[inputFeatures];
+                    double[] maxValues = new double[inputFeatures];
+
+                    for (int j = 0; j < inputFeatures; j++)
+                    {
+                        minValues[j] = dataPoints.Min(x => x[j]);
+                        maxValues[j] = dataPoints.Max(x => x[j]);
+                    }
+
+                    // Min-Max Normalization with proliferation scaling (different scaling for B)
+                    double[][] normalizedData = new double[batchSize][];
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        normalizedData[i] = new double[inputFeatures];
+                        for (int j = 0; j < inputFeatures; j++)
+                        {
+                            double range = maxValues[j] - minValues[j];
+                            if (range > 1e-10)
+                            {
+                                normalizedData[i][j] = ((dataPoints[i][j] - minValues[j]) / range) * proliferationInstance * 1.1; // Different scaling factor for B
+                            }
+                            else
+                            {
+                                normalizedData[i][j] = 0.6 * proliferationInstance; // Different default for B
+                            }
+                        }
+                    }
+
+                    // Local Density Computation with proliferation-adjusted radius (Unit B)
+                    double[] densities = new double[batchSize];
+                    double adjustedRadius = r * Math.Sqrt(proliferationInstance * 1.15); // Different radius adjustment for B
+
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        for (int j = 0; j < batchSize; j++)
+                        {
+                            if (i != j)
+                            {
+                                double distance = 0;
+                                for (int k = 0; k < inputFeatures; k++)
+                                {
+                                    double diff = normalizedData[i][k] - normalizedData[j][k];
+                                    distance += diff * diff;
+                                }
+                                distance = Math.Sqrt(distance);
+
+                                if (distance <= adjustedRadius)
+                                {
+                                    densities[i] += 1.0;
+                                }
+                            }
+                        }
+                    }
+
+                    // === PHASE 2: DENSITY-NORMALIZED K-MEANS (Unit B) ===
+                    var densityIndexPairs = densities.Select((density, index) => new { Density = density, Index = index })
+                                                   .OrderByDescending(x => x.Density)
+                                                   .Take(K)
+                                                   .ToArray();
+
+                    double[][] centroids = new double[K][];
+                    for (int j = 0; j < K; j++)
+                    {
+                        int seedIndex = densityIndexPairs[j].Index;
+                        centroids[j] = (double[])normalizedData[seedIndex].Clone();
+                    }
+
+                    // K-Means iteration with proliferation influence (Unit B)
+                    int[] assignments = new int[batchSize];
+                    for (int iter = 0; iter < maxIter; iter++)
+                    {
+                        bool changed = false;
+
+                        // Assignment step
+                        for (int i = 0; i < batchSize; i++)
+                        {
+                            int bestCluster = 0;
+                            double bestDistance = double.MaxValue;
+
+                            for (int j = 0; j < K; j++)
+                            {
+                                double distance = 0;
+                                for (int k = 0; k < inputFeatures; k++)
+                                {
+                                    double diff = normalizedData[i][k] - centroids[j][k];
+                                    distance += diff * diff;
+                                }
+
+                                if (distance < bestDistance)
+                                {
+                                    bestDistance = distance;
+                                    bestCluster = j;
+                                }
+                            }
+
+                            if (assignments[i] != bestCluster)
+                            {
+                                assignments[i] = bestCluster;
+                                changed = true;
+                            }
+                        }
+
+                        if (!changed) break;
+
+                        // Update step with proliferation weighting (different for B)
+                        for (int j = 0; j < K; j++)
+                        {
+                            var clusterPoints = normalizedData.Where((point, index) => assignments[index] == j).ToArray();
+                            if (clusterPoints.Length > 0)
+                            {
+                                for (int k = 0; k < inputFeatures; k++)
+                                {
+                                    centroids[j][k] = clusterPoints.Average(point => point[k]) * proliferationInstance * 1.05; // Different weighting for B
+                                }
+                            }
+                        }
+                    }
+
+                    // === PHASE 3: GEOMETRIC LIFTING TO ℝ^(d+1) (Unit B) ===
+                    // Relative Centroid
+                    double[] relativeCenter = new double[inputFeatures];
+                    for (int k = 0; k < inputFeatures; k++)
+                    {
+                        relativeCenter[k] = centroids.Average(centroid => centroid[k]);
+                    }
+
+                    // Simplex Construction with proliferation height scaling (different for B)
+                    double relativeMagnitude = Math.Sqrt(relativeCenter.Sum(x => x * x));
+                    double apexHeight = relativeMagnitude * proliferationInstance * 1.2; // Different height scaling for B
+
+                    // === PHASE 4: TENSOR & VELOCITY COMPUTATION (Unit B) ===
+                    // Base Centroid calculation
+                    double[] baseCentroid = new double[inputFeatures + 1];
+                    for (int j = 0; j < K; j++)
+                    {
+                        for (int k = 0; k < inputFeatures; k++)
+                        {
+                            baseCentroid[k] += centroids[j][k] / K;
+                        }
+                    }
+                    baseCentroid[inputFeatures] = 0; // z = 0 for base
+
+                    // Apex with proliferation scaling (Unit B)
+                    double[] apex = new double[inputFeatures + 1];
+                    for (int k = 0; k < inputFeatures; k++)
+                    {
+                        apex[k] = relativeCenter[k];
+                    }
+                    apex[inputFeatures] = apexHeight;
+
+                    // Direction vector
+                    double[] direction = new double[inputFeatures + 1];
+                    for (int k = 0; k <= inputFeatures; k++)
+                    {
+                        direction[k] = apex[k] - baseCentroid[k];
+                    }
+
+                    // Magnitude & Unit Direction
+                    double magnitude = Math.Sqrt(direction.Sum(x => x * x));
+                    double[] unitDirection = new double[inputFeatures + 1];
+                    if (magnitude > 1e-10)
+                    {
+                        for (int k = 0; k <= inputFeatures; k++)
+                        {
+                            unitDirection[k] = direction[k] / magnitude;
+                        }
+                    }
+
+                    // Velocity Field with proliferation (Unit B)
+                    double[] velocity = new double[inputFeatures + 1];
+                    for (int k = 0; k <= inputFeatures; k++)
+                    {
+                        velocity[k] = magnitude * unitDirection[k] * proliferationInstance * 1.1; // Different scaling for B
+                    }
+
+                    // === PHASE 5: EMBEDDING GENERATION (Unit B) ===
+                    // Generate the final n-dimensional embedding from cluster execution results
+                    float[,] embedding = new float[batchSize, embeddingDimension];
+
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        int clusterIdx = assignments[i];
+                        double density = densities[i];
+
+                        for (int j = 0; j < embeddingDimension; j++)
+                        {
+                            // Combine multiple embedding components with proliferation influence (Unit B)
+                            double component = 0;
+
+                            // Component 1: Cluster centroid influence
+                            if (j < inputFeatures && clusterIdx < centroids.Length)
+                            {
+                                component += centroids[clusterIdx][j % inputFeatures] * 0.35; // Different weight for B
+                            }
+
+                            // Component 2: Velocity field influence
+                            if (j < velocity.Length)
+                            {
+                                component += velocity[j] * 0.3; // Different weight for B
+                            }
+
+                            // Component 3: Unit direction influence
+                            if (j < unitDirection.Length)
+                            {
+                                component += unitDirection[j] * 0.2; // Different weight for B
+                            }
+
+                            // Component 4: Density influence with proliferation
+                            component += (density / batchSize) * proliferationInstance * 0.15; // Different weight for B
+
+                            // Apply trigonometric transformation based on n-dimensional formula (Unit B - sin/cos swapped)
+                            double p = (double)proliferationInstance;
+                            double x = normalizedData[i][j % inputFeatures];
+                            component = x * Math.Sin(p * j) + component * Math.Cos(p * j) + density * Math.Sin(p * j / 2); // Sin/Cos swapped for B
+
+                            embedding[i, j] = (float)component;
+                        }
+                    }
+
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generated N-Dimensional embedding (Unit B): {batchSize}x{embeddingDimension} with proliferation {proliferationInstance}");
+                    return embedding;
+                }
+
+                /// <summary>
                 /// Transforms word-based samples into numerical embeddings using a simplified embedding technique.
                 /// </summary>
                 float[][] TransformWordsToEmbeddings(string[] wordSamples)
                 {
-                    if (wordSamples == null) return new float[0][]; // Added null check
-                    // Simple word embedding function - in a real implementation, this would use
-                    // proper word embeddings from a pre-trained model or custom embeddings
+                    if (wordSamples == null) return new float[0][];
 
-                    // For this example, we'll convert each word sample to a 10-dimensional vector
-                    // using a consistent but simplified approach
                     int embeddingDimensions = 10;
                     float[][] embeddings = new float[wordSamples.Length][];
 
                     for (int i = 0; i < wordSamples.Length; i++)
                     {
                         embeddings[i] = new float[embeddingDimensions];
-                        if (wordSamples[i] == null) continue; // Skip null samples
+                        if (wordSamples[i] == null) continue;
 
+                        string[] words = wordSamples[i]?.Split(' ') ?? new string[0];
 
-                        // Split the sample into words
-                        string[] words = wordSamples[i]?.Split(' ') ?? new string[0]; // Handle null sample
-
-                        // For each word, contribute to the embedding
                         for (int j = 0; j < words.Length; j++)
                         {
                             string word = words[j];
-                            if (string.IsNullOrEmpty(word)) continue; // Skip empty words
+                            if (string.IsNullOrEmpty(word)) continue;
 
-                            // Use a simple hash function to generate values from words
-                            // Ensure the hash function is consistent and spreads values
                             int hashBase = word.GetHashCode();
                             for (int k = 0; k < embeddingDimensions; k++)
                             {
-                                // Generate a value based on hash, dimension, and word index
-                                // Using a prime multiplier to help distribute values
-                                int valueInt = Math.Abs(hashBase * (k + 1) * (j + 1) * 31); // Multiply by prime 31
-                                float value = (valueInt % 1000) / 1000.0f; // Map to 0-1 range
-
-                                // Add to the embedding with position-based weighting (inverse word index)
-                                embeddings[i][k] += value * (1.0f / (j + 1.0f)); // Use 1.0f for float division
+                                // Different hash function for Unit B
+                                int valueInt = Math.Abs(hashBase * (k + 2) * (j + 2) * 37); // Different prime for B
+                                float value = (valueInt % 1000) / 1000.0f;
+                                embeddings[i][k] += value * (1.0f / (j + 1.0f));
                             }
                         }
 
@@ -3659,7 +3927,7 @@ namespace Agentic_Mod
                         }
 
                         float magnitude = (float)Math.Sqrt(magnitudeSq);
-                        if (magnitude > 1e-6f) // Use tolerance
+                        if (magnitude > 1e-6f)
                         {
                             for (int k = 0; k < embeddingDimensions; k++)
                             {
@@ -3672,41 +3940,37 @@ namespace Agentic_Mod
                 }
 
                 /// <summary>
+                /// STEP 4: N-DIMENSIONAL EXPRESSION → CURVATURE APPLICATION (Unit B)
                 /// Applies the n-dimensional expression to curvature coefficients.
+                /// NO PROLIFERATION DEPENDENCY - training structure is independent of P.
                 /// </summary>
                 float[] ApplyNDimensionalExpressionToCurvature(float[] coefficients, string ndExpression)
                 {
-                    if (coefficients == null) return new float[0]; // Added null check
-
-
-                    // Parse the expression to determine how to modify coefficients
-                    // For our example derived from "2*2", we'll implement the
-                    // equivalent of "multiplying by 4" to appropriate coefficients
+                    if (coefficients == null) return new float[0];
 
                     float[] modifiedCoefficients = new float[coefficients.Length];
-                    System.Buffer.BlockCopy(coefficients, 0, modifiedCoefficients, 0, coefficients.Length * sizeof(float)); // Use System.Buffer
+                    System.Buffer.BlockCopy(coefficients, 0, modifiedCoefficients, 0, coefficients.Length * sizeof(float));
 
-                    // Apply the expression's effect to the coefficients
+                    // Apply the expression's effect to the coefficients - STATIC, no proliferation influence
                     if (ndExpression.StartsWith("ND(x,y,z,p)="))
                     {
-                        // Extract the dimensional scaling factors from the expression
-                        // For ND(x,y,z,p)=Vx*sin(p)+Vy*cos(p)+Vz*sin(p/2), the 'V' factors are implicitly 1 in this simplified mapping.
-                        // The "2*2=4" idea suggests a scaling or multiplicative influence.
-                        // Let's map the "2*2" effect to scale the primary diagonal coefficients (xx, yy, zz) by 4.
-                        float scalingFactor = 4.0f; // Represents the "2*2" result influencing scale
+                        float baseAmplification = 2.5f; // Different amplification for Unit B
 
-                        if (modifiedCoefficients.Length > 0) modifiedCoefficients[0] *= scalingFactor;  // xx coefficient
-                        if (modifiedCoefficients.Length > 1) modifiedCoefficients[1] *= scalingFactor;  // yy coefficient
-                        if (modifiedCoefficients.Length > 2) modifiedCoefficients[2] *= scalingFactor;  // zz coefficient
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Applying static amplification factor (Unit B): {baseAmplification}");
 
-                        // Scale cross-terms relative to the primary terms' scaling
-                        float crossTermScale = (scalingFactor + scalingFactor) / 2.0f; // Simple average influence
-                        if (modifiedCoefficients.Length > 3) modifiedCoefficients[3] *= crossTermScale;  // xy coefficient
-                        if (modifiedCoefficients.Length > 4) modifiedCoefficients[4] *= crossTermScale;  // xz coefficient
-                        if (modifiedCoefficients.Length > 5) modifiedCoefficients[5] *= crossTermScale;  // yz coefficient
+                        // Apply to primary diagonal coefficients (xx, yy, zz)
+                        if (modifiedCoefficients.Length > 0) modifiedCoefficients[0] *= baseAmplification;
+                        if (modifiedCoefficients.Length > 1) modifiedCoefficients[1] *= baseAmplification;
+                        if (modifiedCoefficients.Length > 2) modifiedCoefficients[2] *= baseAmplification;
 
-                        // Apply a lesser influence to higher-order terms if they exist
-                        float higherOrderScale = (crossTermScale + 1.0f) / 2.0f; // Average of cross-term scale and default 1.0
+                        // Scale cross-terms (different for B)
+                        float crossTermScale = baseAmplification * 0.8f; // Different scaling for B
+                        if (modifiedCoefficients.Length > 3) modifiedCoefficients[3] *= crossTermScale;
+                        if (modifiedCoefficients.Length > 4) modifiedCoefficients[4] *= crossTermScale;
+                        if (modifiedCoefficients.Length > 5) modifiedCoefficients[5] *= crossTermScale;
+
+                        // Apply graduated influence to higher-order terms
+                        float higherOrderScale = (crossTermScale + 1.0f) / 2.0f;
                         if (modifiedCoefficients.Length > 6) modifiedCoefficients[6] *= higherOrderScale;
                         if (modifiedCoefficients.Length > 7) modifiedCoefficients[7] *= higherOrderScale;
                         if (modifiedCoefficients.Length > 8) modifiedCoefficients[8] *= higherOrderScale;
@@ -3715,9 +3979,10 @@ namespace Agentic_Mod
                     return modifiedCoefficients;
                 }
 
-
                 /// <summary>
+                /// STEP 5: EXPRESSION → WEIGHT GENERATION (Unit B)
                 /// Generates weight matrices from our n-dimensional expression.
+                /// NO PROLIFERATION DEPENDENCY - weights are static for training structure.
                 /// </summary>
                 float[,] GenerateWeightsFromExpression(string expression, int inputDim, int outputDim)
                 {
@@ -3726,284 +3991,79 @@ namespace Agentic_Mod
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): GenerateWeightsFromExpression received invalid dimensions ({inputDim}, {outputDim}). Returning empty array.");
                         return new float[0, 0];
                     }
-                    // Create a weight matrix based on our expression
+
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generating static weights from expression (Unit B)");
+
                     float[,] weights = new float[inputDim, outputDim];
+                    Random rand = new Random(43 + inputDim * 100 + outputDim); // Different seed for B
 
-                    // Use a pseudorandom generator with fixed seed for reproducibility
-                    // Use a different seed base than Unit A
-                    Random rand = new Random(43 + inputDim * 100 + outputDim); // Vary seed slightly for different matrix sizes
-
-                    // Fill the matrix with values derived from our expression
                     for (int i = 0; i < inputDim; i++)
                     {
                         for (int j = 0; j < outputDim; j++)
                         {
-                            // Base weight value (small random initialization)
-                            float baseWeight = (float)(rand.NextDouble() * 0.04 - 0.02); // Range -0.02 to +0.02
+                            float baseWeight = (float)(rand.NextDouble() * 0.04 - 0.02);
 
-                            // Apply influence from our expression's structure
-                            // For "2*2" -> ND(x,y,z,p)=Vx*sin(p)+Vy*cos(p)+Vz*sin(p/2)
-                            // We want the weights to reflect the oscillatory and dimensional coupling nature,
-                            // with potentially different phase shifts or scales compared to Unit A.
+                            // Static expression influence - no proliferation (different for B)
                             float expressionInfluence = (float)(
-                                Math.Sin((i + j) * Math.PI / (inputDim + outputDim) * 1.5) + // Sine based on combined indices (different frequency)
-                                Math.Cos(i * Math.PI / inputDim) * 0.6 +               // Cosine based on input index (different scale)
-                                Math.Sin(j * Math.PI / (outputDim * 1.5)) * 0.4         // Sine based on output index (different frequency and scale)
+                                Math.Sin((i + j) * Math.PI / (inputDim + outputDim) * 1.5) + // Different frequency for B
+                                Math.Cos(i * Math.PI / inputDim) * 0.6 + // Different scaling for B
+                                Math.Sin(j * Math.PI / (outputDim * 1.5)) * 0.4 // Different frequency and scale for B
                             );
 
-
-                            // Scale the influence and add it to the base weight
-                            // The scale factor ensures the expression doesn't dominate initialization completely
-                            float influenceScale = 0.12f; // Slightly different influence scale than Unit A
+                            float influenceScale = 0.12f; // Different influence scale for B
                             weights[i, j] = baseWeight + expressionInfluence * influenceScale;
                         }
                     }
 
-                    // Enhance the "outermost vertices" (corners) to emphasize the boundary condition - Different boost than Unit A
-                    float cornerBoost = 1.7f; // Factor to multiply corner weights by
+                    // Static vertex enhancement - no proliferation dependency (different for B)
+                    float cornerBoost = 1.7f; // Different corner boost for B
                     if (inputDim > 0 && outputDim > 0)
                     {
-                        weights[0, 0] *= cornerBoost;                   // Top-left
-                        weights[0, outputDim - 1] *= cornerBoost;        // Top-right
-                        weights[inputDim - 1, 0] *= cornerBoost;         // Bottom-left
-                        weights[inputDim - 1, outputDim - 1] *= cornerBoost; // Bottom-right (outermost conceptual vertex)
+                        weights[0, 0] *= cornerBoost;
+                        weights[0, outputDim - 1] *= cornerBoost;
+                        weights[inputDim - 1, 0] *= cornerBoost;
+                        weights[inputDim - 1, outputDim - 1] *= cornerBoost;
                     }
 
                     return weights;
                 }
 
                 /// <summary>
-                /// Calculates a basis vector from sample coordinates along a specific dimension.
-                /// </summary>
-                System.Numerics.Vector3 CalculateBasisVector(System.Numerics.Vector3[] coordinates, int dimension)
-                {
-                    if (coordinates == null || coordinates.Length == 0 || dimension < 0 || dimension > 2) // Added null/empty/dimension checks
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateBasisVector. Returning zero vector.");
-                        return System.Numerics.Vector3.Zero;
-                    }
-
-                    // Start with a zero vector
-                    System.Numerics.Vector3 basis = System.Numerics.Vector3.Zero;
-
-                    // For each coordinate, extract the component from the specified dimension
-                    // and use it to weight the contribution of that coordinate to the basis vector
-                    foreach (var coord in coordinates)
-                    {
-                        // System.Numerics.Vector3 is a struct, so no null check needed for 'coord' itself after array check
-                        // Get the component value for the specified dimension
-                        float component = dimension == 0 ? coord.X : (dimension == 1 ? coord.Y : coord.Z);
-
-                        // Add the weighted coordinate to the basis vector
-                        basis += new System.Numerics.Vector3(
-                            coord.X * component,
-                            coord.Y * component,
-                            coord.Z * component
-                        );
-                    }
-
-                    // Normalize the basis vector to unit length
-                    float magnitude = basis.Length();
-                    if (magnitude > 1e-6f) // Use tolerance
-                    {
-                        basis = System.Numerics.Vector3.Divide(basis, magnitude);
-                    }
-
-                    return basis;
-                }
-
-                /// <summary>
-                /// Calculates coefficients that represent how the curvature varies in the sample space.
-                /// </summary>
-                float[] CalculateCurvatureCoefficients(System.Numerics.Vector3[] coordinates, System.Numerics.Vector3[] values)
-                {
-                    if (coordinates == null || values == null || coordinates.Length == 0 || coordinates.Length != values.Length)
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateCurvatureCoefficients. Returning zero coefficients.");
-                        return new float[9]; // Return zero array if input is invalid
-                    }
-
-
-                    // We'll use 9 coefficients to represent the curvature in 3D space
-                    float[] coefficients = new float[9];
-
-                    // For each coordinate-value pair
-                    for (int i = 0; i < coordinates.Length; i++)
-                    {
-                        System.Numerics.Vector3 coord = coordinates[i];
-                        System.Numerics.Vector3 value = values[i];
-
-                        // Calculate the squared components of the coordinate
-                        float x2 = coord.X * coord.X;
-                        float y2 = coord.Y * coord.Y;
-                        float z2 = coord.Z * coord.Z;
-
-                        // Calculate the cross-components
-                        float xy = coord.X * coord.Y;
-                        float xz = coord.X * coord.Z;
-                        float yz = coord.Y * coord.Z;
-
-                        // Calculate the dot product of coordinate and value
-                        float dot = System.Numerics.Vector3.Dot(coord, value);
-
-                        // Update the coefficients based on this sample
-                        coefficients[0] += x2 * dot; // xx component
-                        coefficients[1] += y2 * dot; // yy component
-                        coefficients[2] += z2 * dot; // zz component
-                        coefficients[3] += xy * dot; // xy component
-                        coefficients[4] += xz * dot; // xz component
-                        coefficients[5] += yz * dot; // yz component
-                        coefficients[6] += x2 * y2 * dot; // xxyy component (higher order)
-                        coefficients[7] += x2 * z2 * dot; // xxzz component (higher order)
-                        coefficients[8] += y2 * z2 * dot; // yyzz component (higher order)
-                    }
-
-                    // Normalize the coefficients by the number of samples
-                    if (coordinates.Length > 0) // Avoid division by zero
-                    {
-                        for (int i = 0; i < coefficients.Length; i++)
-                        {
-                            coefficients[i] /= coordinates.Length;
-                        }
-                    }
-                    return coefficients;
-                }
-
-                /// <summary>
-                /// Calculates the eigenvalues of the curvature tensor.
-                /// </summary>
-                float[] CalculateEigenvalues(float[] coefficients)
-                {
-                    if (coefficients == null || coefficients.Length < 6)
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Invalid input for CalculateEigenvalues. Returning default eigenvalues.");
-                        return new float[] { 1.0f, 1.0f, 1.0f }; // Return default values
-                    }
-
-
-                    // Construct a simplified 3x3 matrix from the first 6 coefficients
-                    float[,] matrix = new float[3, 3];
-                    matrix[0, 0] = coefficients[0]; // xx
-                    matrix[1, 1] = coefficients[1]; // yy
-                    matrix[2, 2] = coefficients[2]; // zz
-                    matrix[0, 1] = matrix[1, 0] = coefficients[3]; // xy
-                    matrix[0, 2] = matrix[2, 0] = coefficients[4]; // xz
-                    matrix[1, 2] = matrix[2, 1] = coefficients[5]; // yz
-
-                    // Compute the trace (sum of diagonal elements)
-                    float trace = matrix[0, 0] + matrix[1, 1] + matrix[2, 2];
-
-                    // Compute the determinant
-                    float det = matrix[0, 0] * (matrix[1, 1] * matrix[2, 2] - matrix[1, 2] * matrix[2, 1]) -
-                                        matrix[0, 1] * (matrix[1, 0] * matrix[2, 2] - matrix[1, 2] * matrix[2, 0]) +
-                                        matrix[0, 2] * (matrix[1, 0] * matrix[2, 1] - matrix[1, 1] * matrix[2, 0]);
-
-                    // Use a simplified approach to estimate eigenvalues
-                    float[] eigenvalues = new float[3];
-                    // Slightly different calculation than Unit A
-                    eigenvalues[0] = trace / 3.0f + 0.12f * det; // Approximation for first eigenvalue
-                    eigenvalues[1] = trace / 3.0f - 0.03f * det; // Approximation for second eigenvalue
-                    eigenvalues[2] = trace / 3.0f - 0.09f * det; // Approximation for third eigenvalue
-
-
-                    return eigenvalues;
-                }
-
-                /// <summary>
-                /// Converts eigenvalues to weights for loss function.
-                /// </summary>
-                float[] ConvertEigenvaluesToWeights(float[] eigenvalues)
-                {
-                    if (eigenvalues == null || eigenvalues.Length == 0)
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Eigenvalues array is null or empty for weights. Returning default weights.");
-                        return new float[] { 1.0f }; // Return a default weight
-                    }
-
-                    // Create weights based on eigenvalues
-                    float[] weights = new float[eigenvalues.Length];
-
-                    // Normalize eigenvalues to create weights that sum to something meaningful
-                    // Use absolute values, and shift/scale to ensure positive weights
-                    float sumAbsEigenvalues = 0.0f;
-                    for (int i = 0; i < eigenvalues.Length; i++)
-                    {
-                        // Use absolute values to ensure positive weights
-                        weights[i] = Math.Abs(eigenvalues[i]);
-                        sumAbsEigenvalues += weights[i];
-                    }
-
-                    // Normalize and ensure minimum weight, or use a relative weighting
-                    if (sumAbsEigenvalues > 1e-6f) // Use tolerance
-                    {
-                        // Use a relative weighting: higher absolute eigenvalue means higher weight
-                        float maxAbsEigenvalue = weights.Max();
-                        if (maxAbsEigenvalue > 1e-6f)
-                        {
-                            for (int i = 0; i < weights.Length; i++)
-                            {
-                                // Scale weights relative to max, with a minimum base value
-                                weights[i] = 0.5f + 0.5f * (weights[i] / maxAbsEigenvalue); // Weights between 0.5 and 1.0
-                            }
-                        }
-                        else
-                        {
-                            // Fallback if max is zero (all eigenvalues are zero)
-                            for (int i = 0; i < weights.Length; i++)
-                            {
-                                weights[i] = 1.0f; // Equal weights
-                            }
-                        }
-
-                        // If we only need a single scalar weight for the overall loss
-                        // For the loss function structure `tf.reduce_mean(tf.multiply(rawLoss, curvatureWeightTensor))`
-                        // where rawLoss is (batch_size, 1), curvatureWeightTensor should also be (batch_size, 1) or (1, 1).
-                        // Let's average the calculated weights to get a single scalar weight for the batch loss.
-                        return new float[] { weights.Average() }; // Return average weight as a scalar array
-                    }
-                    else
-                    {
-                        // Default equal weights if eigenvalues sum to zero (all eigenvalues are zero or near zero)
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Sum of absolute eigenvalues is zero. Returning default weights.");
-                        return new float[] { 1.0f }; // Return a default scalar weight
-                    }
-                }
-
-
-                /// <summary>
+                /// STEP 6: VERTEX MASK CALCULATION - STATIC (Unit B)
                 /// Calculates a mask that identifies the outermost vertices in a tensor.
-                /// This version is a simplified conceptual mask for a 2D tensor.
+                /// NO PROLIFERATION DEPENDENCY - vertex mask structure is static and independent of P.
                 /// </summary>
                 Tensor CalculateOutermostVertexMask(Tensor input)
                 {
                     if (input == null || input.shape.rank < 2)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): CalculateOutermostVertexMask received null or insufficient rank tensor. Returning default mask.");
-                        return tf.ones_like(input); // Return identity mask
+                        return tf.ones_like(input);
                     }
-                    // Get the shape of the input tensor
-                    var shape = tf.shape(input); // Shape is (batch_size, features)
+
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Calculating static vertex mask (Unit B) (no proliferation dependency)");
+
+                    var shape = tf.shape(input);
                     var batchSize = tf.slice(shape, begin: new int[] { 0 }, size: new int[] { 1 });
-                    var features = tf.slice(shape, begin: new int[] { 1 }, size: new int[] { 1 });
+                    var featuresRank1 = tf.slice(shape, begin: new int[] { 1 }, size: new int[] { 1 });
 
-                    // Create a feature-wise weight that emphasizes the ends (conceptual vertices)
-                    var featureIndices = tf.cast(tf.range(0, features), dtype: tf.float32); // Indices 0 to features-1
-                    var normalizedIndices = tf.divide(featureIndices, tf.cast(features - 1, tf.float32)); // Normalize to 0-1
+                    // Extract scalar value from rank-1 tensor for tf.range()
+                    var features = tf.squeeze(featuresRank1, axis: new int[] { 0 }); // Convert rank-1 [n] to scalar n
 
-                    // Use a pattern that is high at 0 and 1, low in the middle
-                    // abs(normalizedIndices - 0.5) gives values from 0.5 to 0 then back to 0.5
-                    // Multiplying by 2 gives values from 1.0 to 0 then back to 1.0
-                    var featureMask = tf.multiply(tf.abs(normalizedIndices - 0.5f), 2.0f, name: "feature_vertex_mask_B"); // Shape (features,)
+                    // STATIC vertex pattern - no proliferation influence (different pattern for B)
+                    var featureIndices = tf.cast(tf.range(features), dtype: tf.float32);
+                    var normalizedIndices = tf.divide(featureIndices, tf.cast(features - 1, tf.float32));
 
+                    // Static vertex mask pattern - emphasizes outer vertices (different pattern for B)
+                    var featureMask = tf.multiply(tf.abs(normalizedIndices - 0.5f), 2.2f, name: "static_vertex_mask_B"); // Different multiplier for B
 
-                    // Expand the mask to match the batch dimension (batch_size, features)
                     var batchSizeInt = tf.cast(batchSize, tf.int32);
-                    // Tile requires an array for multiples
-                    var expandedMask = tf.tile(tf.reshape(featureMask, shape: new int[] { 1, -1 }), multiples: tf.concat(new[] { batchSizeInt, tf.constant(new int[] { 1 }) }, axis: 0), name: "expanded_vertex_mask_B");
+                    var expandedMask = tf.tile(tf.reshape(featureMask, shape: new int[] { 1, -1 }),
+                                             multiples: tf.concat(new[] { batchSizeInt, tf.constant(new int[] { 1 }) }, axis: 0),
+                                             name: "expanded_static_mask_B");
 
                     return expandedMask;
                 }
-
 
                 /// <summary>
                 /// Converts a jagged array to a multidimensional array.
@@ -4012,25 +4072,23 @@ namespace Agentic_Mod
                 {
                     if (jaggedArray == null || jaggedArray.Length == 0 || jaggedArray.Any(row => row == null))
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): ConvertJaggedToMultidimensional received null, empty, or jagged array with null rows. Returning empty multidimensional array.");
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): ConvertJaggedToMultidimensional received invalid input. Returning empty array.");
                         return new float[0, 0];
                     }
                     if (jaggedArray[0].Length == 0)
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Helper (Unit B): ConvertJaggedToMultidimensional received jagged array with zero columns. Returning empty multidimensional array.");
                         return new float[jaggedArray.Length, 0];
                     }
 
                     int rows = jaggedArray.Length;
                     int cols = jaggedArray[0].Length;
-
                     float[,] result = new float[rows, cols];
 
                     for (int i = 0; i < rows; i++)
                     {
                         if (jaggedArray[i].Length != cols)
                         {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Row {i} in jagged array has inconsistent length ({jaggedArray[i].Length} vs {cols}). Returning partial result.");
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Row {i} has inconsistent length. Using partial data.");
                             int currentCols = jaggedArray[i].Length;
                             for (int j = 0; j < Math.Min(cols, currentCols); j++)
                             {
@@ -4039,13 +4097,12 @@ namespace Agentic_Mod
                         }
                         else
                         {
-                            System.Buffer.BlockCopy(jaggedArray[i], 0, result, i * cols * sizeof(float), cols * sizeof(float)); // Use System.Buffer
+                            System.Buffer.BlockCopy(jaggedArray[i], 0, result, i * cols * sizeof(float), cols * sizeof(float));
                         }
                     }
 
                     return result;
                 }
-
 
                 /// <summary>
                 /// Extracts a batch from a multidimensional array using indices.
@@ -4054,32 +4111,26 @@ namespace Agentic_Mod
                 {
                     if (data == null || batchIndices == null || data.GetLength(0) == 0 || batchIndices.Length == 0)
                     {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Invalid or empty input data/indices for ExtractBatch. Returning empty batch.");
+                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Invalid input for ExtractBatch. Returning empty batch.");
                         return new float[0, data?.GetLength(1) ?? 0];
                     }
-                    if (batchIndices.Length < startIdx + count || (batchIndices.Length > 0 && data.GetLength(0) <= batchIndices.Max()))
-                    {
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Indices or data size mismatch for ExtractBatch (data rows: {data.GetLength(0)}, indices length: {batchIndices.Length}, startIdx: {startIdx}, count: {count}, max index in batch: {(batchIndices.Length > 0 ? batchIndices.Skip(startIdx).Take(count).DefaultIfEmpty(-1).Max() : -1)}). Returning empty batch.");
-                        return new float[0, data.GetLength(1)];
-                    }
 
-
-                    if (count <= 0) return new float[0, data.GetLength(1)]; // Return empty batch if count is non-positive
+                    if (count <= 0) return new float[0, data.GetLength(1)];
 
                     int cols = data.GetLength(1);
                     float[,] batch = new float[count, cols];
 
                     for (int i = 0; i < count; i++)
                     {
-                        int srcIdx = batchIndices[startIdx + i]; // Used batchIndices
+                        int srcIdx = batchIndices[startIdx + i];
                         if (srcIdx < 0 || srcIdx >= data.GetLength(0))
                         {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error (Unit B): Invalid index {srcIdx} in ExtractBatch indices array at batch index {i}. Stopping batch extraction.");
+                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error (Unit B): Invalid index {srcIdx}. Stopping batch extraction.");
                             var partialBatch = new float[i, cols];
-                            System.Buffer.BlockCopy(batch, 0, partialBatch, 0, i * cols * sizeof(float)); // Use System.Buffer
+                            System.Buffer.BlockCopy(batch, 0, partialBatch, 0, i * cols * sizeof(float));
                             return partialBatch;
                         }
-                        System.Buffer.BlockCopy(data, srcIdx * cols * sizeof(float), batch, i * cols * sizeof(float), cols * sizeof(float)); // Use System.Buffer
+                        System.Buffer.BlockCopy(data, srcIdx * cols * sizeof(float), batch, i * cols * sizeof(float), cols * sizeof(float));
                     }
 
                     return batch;
@@ -4110,22 +4161,59 @@ namespace Agentic_Mod
                 string SerializeMetadata(Dictionary<string, object> metadata)
                 {
                     if (metadata == null) return "{}";
+
                     StringBuilder sb = new StringBuilder();
                     sb.Append("{");
+
                     bool first = true;
                     foreach (var entry in metadata)
                     {
                         if (!first) sb.Append(",");
+
                         sb.Append($"\"{entry.Key}\":");
-                        if (entry.Value is string strValue) sb.Append($"\"{strValue.Replace("\"", "\\\"")}\"");
-                        else if (entry.Value is float[] floatArray) sb.Append($"[{string.Join(",", floatArray.Select(f => f.ToString("F6")))}]");
-                        else if (entry.Value is double[] doubleArray) sb.Append($"[{string.Join(",", doubleArray.Select(d => d.ToString("F6")))}]");
-                        else if (entry.Value is int[] intArray) sb.Append($"[{string.Join(",", intArray)}]");
-                        else if (entry.Value is System.Numerics.Vector3 vector) sb.Append($"[\"{vector.X:F6}\",\"{vector.Y:F6}\",\"{vector.Z:F6}\"]");
-                        else if (entry.Value is float floatValue) sb.Append(floatValue.ToString("F6"));
-                        else if (entry.Value is double doubleValue) sb.Append(doubleValue.ToString("F6"));
-                        else if (entry.Value is int intValue) sb.Append(intValue.ToString());
-                        else if (entry.Value is bool boolValue) sb.Append(boolValue.ToString().ToLower());
+
+                        if (entry.Value is string strValue)
+                        {
+                            sb.Append($"\"{strValue.Replace("\"", "\\\"")}\"");
+                        }
+                        else if (entry.Value is float[] floatArray)
+                        {
+                            sb.Append("[");
+                            sb.Append(string.Join(",", floatArray.Select(f => f.ToString("F6"))));
+                            sb.Append("]");
+                        }
+                        else if (entry.Value is double[] doubleArray)
+                        {
+                            sb.Append("[");
+                            sb.Append(string.Join(",", doubleArray.Select(d => d.ToString("F6"))));
+                            sb.Append("]");
+                        }
+                        else if (entry.Value is int[] intArray)
+                        {
+                            sb.Append("[");
+                            sb.Append(string.Join(",", intArray));
+                            sb.Append("]");
+                        }
+                        else if (entry.Value is System.Numerics.Vector3 vector)
+                        {
+                            sb.Append($"[\"{vector.X:F6}\",\"{vector.Y:F6}\",\"{vector.Z:F6}\"]");
+                        }
+                        else if (entry.Value is float floatValue)
+                        {
+                            sb.Append(floatValue.ToString("F6"));
+                        }
+                        else if (entry.Value is double doubleValue)
+                        {
+                            sb.Append(doubleValue.ToString("F6"));
+                        }
+                        else if (entry.Value is int intValue)
+                        {
+                            sb.Append(intValue.ToString());
+                        }
+                        else if (entry.Value is bool boolValue)
+                        {
+                            sb.Append(boolValue.ToString().ToLower());
+                        }
                         else if (entry.Value is float[,] float2DArray)
                         {
                             sb.Append("[");
@@ -4144,21 +4232,60 @@ namespace Agentic_Mod
                         }
                         else if (entry.Value != null)
                         {
-                            try { string valueStr = entry.Value.ToString(); if (float.TryParse(valueStr, out _) || double.TryParse(valueStr, out _) || bool.TryParse(valueStr, out _)) sb.Append(valueStr); else sb.Append($"\"{valueStr.Replace("\"", "\\\"")}\""); }
-                            catch (Exception ex) { Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Failed to serialize metadata value for key '{entry.Key}': {ex.Message}"); sb.Append("\"SerializationError\""); }
+                            try
+                            {
+                                string valueStr = entry.Value.ToString();
+                                if (float.TryParse(valueStr, out _) || double.TryParse(valueStr, out _) || bool.TryParse(valueStr, out _))
+                                {
+                                    sb.Append(valueStr);
+                                }
+                                else
+                                {
+                                    sb.Append($"\"{valueStr.Replace("\"", "\\\"")}\"");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning: Failed to serialize metadata value for key '{entry.Key}': {ex.Message}");
+                                sb.Append("\"SerializationError\"");
+                            }
                         }
-                        else sb.Append("null");
+                        else
+                        {
+                            sb.Append("null");
+                        }
+
                         first = false;
                     }
+
                     sb.Append("}");
                     return sb.ToString();
                 }
 
+                // Helper function to serialize float arrays
+                byte[] SerializeFloatArray(float[] array)
+                {
+                    if (array == null) return new byte[0];
+                    byte[] bytes = new byte[array.Length * sizeof(float)];
+                    System.Buffer.BlockCopy(array, 0, bytes, 0, bytes.Length);
+                    return bytes;
+                }
 
-                // Helper function to process an array with K-means clustering
+                // Helper function to deserialize float arrays
+                float[] DeserializeFloatArray(byte[] bytes)
+                {
+                    if (bytes == null || bytes.Length == 0) return new float[0];
+                    float[] array = new float[bytes.Length / sizeof(float)];
+                    System.Buffer.BlockCopy(bytes, 0, array, 0, bytes.Length);
+                    return array;
+                }
+
+                // Helper function to process an array with K-means clustering - SEPARATED INPUT DATA SECTION
                 void ProcessArrayWithKMeans(double[] dataArray, string arrayName, ConcurrentDictionary<string, object> resultsStore)
                 {
                     string unitBArrayName = arrayName + "_B"; // Append _B for Unit B's results
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === CLUSTER INPUT DATA PROCESSING (Unit B): {unitBArrayName} ===");
+
                     if (dataArray == null || dataArray.Length < 3 || dataArray.All(d => d == dataArray[0]))
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Not enough distinct data points in {unitBArrayName} for K-means clustering or data is constant. Skipping.");
@@ -4169,36 +4296,66 @@ namespace Agentic_Mod
                         resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
                         return;
                     }
+
                     try
                     {
+                        // Convert 1D array to 2D array format required by Accord
                         double[][] points = new double[dataArray.Length][];
-                        for (int i = 0; i < dataArray.Length; i++) points[i] = new double[] { dataArray[i] };
-                        int k = Math.Min(3, points.Length); if (k < 1) k = 1;
-                        var kmeans = new Accord.MachineLearning.KMeans(k) { Distance = new Accord.Math.Distances.SquareEuclidean() };
+                        for (int i = 0; i < dataArray.Length; i++)
+                        {
+                            points[i] = new double[] { dataArray[i] };
+                        }
+
+                        // Initialize K-means algorithm with k=3 clusters
+                        int k = Math.Min(3, points.Length);
+                        if (k < 1) k = 1;
+
+                        var kmeans = new Accord.MachineLearning.KMeans(k);
+                        kmeans.Distance = new Accord.Math.Distances.SquareEuclidean();
+
                         try
                         {
                             var clusters = kmeans.Learn(points);
                             double[] centroids = clusters.Centroids.Select(c => c[0]).ToArray();
-                            Array.Sort(centroids); Array.Reverse(centroids);
+
+                            Array.Sort(centroids);
+                            Array.Reverse(centroids);
                             int numCentroids = Math.Min(3, centroids.Length);
+
                             double[] paddedCentroids = new double[3];
                             for (int i = 0; i < numCentroids; i++) paddedCentroids[i] = centroids[i];
+
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] K-means centroids for {unitBArrayName}: [{string.Join(", ", centroids.Take(numCentroids).Select(c => c.ToString("F4")))}]");
+
                             double centralPoint = centroids.Take(numCentroids).DefaultIfEmpty(0).Average();
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Central point for {unitBArrayName}: {centralPoint}");
+
                             double maxAbsCentroid = centroids.Take(numCentroids).Select(Math.Abs).DefaultIfEmpty(0).Max();
                             double normalizedValue = maxAbsCentroid > 1e-6 ? centralPoint / maxAbsCentroid : 0;
+
                             string category;
                             if (normalizedValue < -0.33) category = "Negative High";
                             else if (normalizedValue < 0) category = "Negative Low";
                             else if (normalizedValue < 0.33) category = "Positive Low";
                             else if (normalizedValue < 0.66) category = "Positive Medium";
                             else category = "Positive High";
+
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized value for {unitBArrayName}: {normalizedValue:F4}, Category: {category}");
-                            double x = paddedCentroids[0], y = paddedCentroids[1], z = paddedCentroids[2];
+
+                            double x = paddedCentroids[0];
+                            double y = paddedCentroids[1];
+                            double z = paddedCentroids[2];
+
                             double maxAbsCoordinate = Math.Max(Math.Max(Math.Abs(x), Math.Abs(y)), Math.Abs(z));
-                            if (maxAbsCoordinate > 1e-6) { x /= maxAbsCoordinate; y /= maxAbsCoordinate; z /= maxAbsCoordinate; }
+                            if (maxAbsCoordinate > 1e-6)
+                            {
+                                x /= maxAbsCoordinate;
+                                y /= maxAbsCoordinate;
+                                z /= maxAbsCoordinate;
+                            }
+
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Normalized XYZ coordinates for {unitBArrayName}: ({x:F4}, {y:F4}, {z:F4})");
+
                             resultsStore[$"{unitBArrayName}_Category"] = category;
                             resultsStore[$"{unitBArrayName}_NormalizedValue"] = normalizedValue;
                             resultsStore[$"{unitBArrayName}_NormalizedX"] = x;
@@ -4208,102 +4365,25 @@ namespace Agentic_Mod
                         catch (Exception learnEx)
                         {
                             Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during K-means Learn for {unitBArrayName}: {learnEx.Message}");
-                            resultsStore[$"{unitBArrayName}_Category"] = "ClusteringLearnError"; resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
+                            resultsStore[$"{unitBArrayName}_Category"] = "ClusteringLearnError";
+                            resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0;
+                            resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0;
+                            resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0;
+                            resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
                         }
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error processing K-means for {unitBArrayName}: {ex.Message}");
-                        resultsStore[$"{unitBArrayName}_Category"] = "ProcessingError"; resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0; resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_Category"] = "ProcessingError";
+                        resultsStore[$"{unitBArrayName}_NormalizedValue"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_NormalizedX"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_NormalizedY"] = 0.0;
+                        resultsStore[$"{unitBArrayName}_NormalizedZ"] = 0.0;
                     }
                 }
 
-                // Helper function to calculate trajectory stability
-                double CalculateTrajectoryStability(List<double[]> trajectoryPoints)
-                {
-                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) return 0.5;
-                    double averageAngleChange = 0; int angleCount = 0;
-                    for (int i = 1; i < trajectoryPoints.Count - 1; i++)
-                    {
-                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < 3 || trajectoryPoints[i] == null || trajectoryPoints[i].Length < 3 || trajectoryPoints[i + 1] == null || trajectoryPoints[i + 1].Length < 3) continue;
-                        double[] prevVector = new double[3], nextVector = new double[3];
-                        for (int j = 0; j < 3; j++) prevVector[j] = trajectoryPoints[i][j] - trajectoryPoints[i - 1][j];
-                        for (int j = 0; j < 3; j++) nextVector[j] = trajectoryPoints[i + 1][j] - trajectoryPoints[i][j];
-                        double dotProduct = 0, prevMagSq = 0, nextMagSq = 0;
-                        for (int j = 0; j < 3; j++) { dotProduct += prevVector[j] * nextVector[j]; prevMagSq += prevVector[j] * prevVector[j]; nextMagSq += nextVector[j] * nextVector[j]; }
-                        double prevMag = Math.Sqrt(prevMagSq), nextMag = Math.Sqrt(nextMagSq);
-                        if (prevMag > 1e-9 && nextMag > 1e-9)
-                        {
-                            double cosAngle = dotProduct / (prevMag * nextMag);
-                            cosAngle = Math.Max(-1.0, Math.Min(1.0, cosAngle));
-                            double angle = Math.Acos(cosAngle);
-                            averageAngleChange += angle; angleCount++;
-                        }
-                    }
-                    if (angleCount > 0) averageAngleChange /= angleCount; else return 0.5;
-                    return 1.0 - (averageAngleChange / Math.PI);
-                }
-
-                // Helper function to calculate plane intersection point
-                double[] CalculatePlaneIntersection(List<double[]> trajectoryPoints, int planeAxis, double tolerance)
-                {
-                    if (trajectoryPoints == null || trajectoryPoints.Count < 2) return null;
-                    for (int i = 1; i < trajectoryPoints.Count; i++)
-                    {
-                        if (trajectoryPoints[i - 1] == null || trajectoryPoints[i - 1].Length < Math.Max(3, planeAxis + 1) || trajectoryPoints[i] == null || trajectoryPoints[i].Length < Math.Max(3, planeAxis + 1)) continue;
-                        double v1 = trajectoryPoints[i - 1][planeAxis], v2 = trajectoryPoints[i][planeAxis];
-                        bool crossedZero = (v1 >= -tolerance && v2 <= tolerance) || (v1 <= tolerance && v2 >= -tolerance);
-                        if (crossedZero && !((v1 >= -tolerance && v1 <= tolerance) && (v2 >= -tolerance && v2 <= tolerance)))
-                        {
-                            if (Math.Abs(v1) < tolerance) return (double[])trajectoryPoints[i - 1].Clone();
-                            if (Math.Abs(v2) < tolerance) return (double[])trajectoryPoints[i].Clone();
-                            double t = Math.Abs(v1) / (Math.Abs(v1) + Math.Abs(v2));
-                            double[] intersection = new double[3];
-                            for (int j = 0; j < 3; j++) { if (j < trajectoryPoints[i - 1].Length && j < trajectoryPoints[i].Length) intersection[j] = trajectoryPoints[i - 1][j] * (1 - t) + trajectoryPoints[i][j] * t; else intersection[j] = 0; }
-                            if (planeAxis >= 0 && planeAxis < intersection.Length) intersection[planeAxis] = 0.0;
-                            return intersection;
-                        }
-                    }
-                    return null;
-                }
-
-                // Helper functions to count negative points using tolerance
-                int CountNegativePoints(List<double[]> points, int axis, double tolerance)
-                {
-                    if (points == null) return 0; int count = 0;
-                    foreach (var point in points) { if (point != null && point.Length > axis && point[axis] < -tolerance) count++; }
-                    return count;
-                }
-
-                int CountNegativeBothPoints(List<double[]> points, double tolerance)
-                {
-                    if (points == null) return 0; int count = 0;
-                    foreach (var point in points) { if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) count++; }
-                    return count;
-                }
-
-                double[] FindPositiveCoordinate(List<double[]> points, double tolerance)
-                {
-                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 };
-                    foreach (var point in points) { if (point != null && point.Length >= 2 && point[0] > tolerance && point[1] > tolerance) return (double[])point.Clone(); }
-                    int firstIndex = points.Count > 0 ? 0 : -1;
-                    if (firstIndex != -1 && points[firstIndex] != null && points[firstIndex].Length >= 3) return (double[])points[firstIndex].Clone();
-                    return new double[] { 0, 0, 0 };
-                }
-
-                double[] FindNegativeCoordinate(List<double[]> points, double tolerance)
-                {
-                    if (points == null || points.Count == 0) return new double[] { 0, 0, 0 };
-                    foreach (var point in points) { if (point != null && point.Length >= 2 && point[0] < -tolerance && point[1] < -tolerance) return (double[])point.Clone(); }
-                    int lastIndex = points.Count > 0 ? points.Count - 1 : 0;
-                    if (lastIndex >= 0 && points[lastIndex] != null && points[lastIndex].Length >= 3) return (double[])points[lastIndex].Clone();
-                    return new double[] { 0, 0, 0 };
-                }
-
-                double CalculateVelocity(double[] trajectory, double magnitude) { return magnitude; }
-
-                #endregion // End of Helper Methods for Unit B
-
+                #endregion
 
                 //==========================================================================
                 // Workflow Coordination
@@ -4322,7 +4402,7 @@ namespace Agentic_Mod
                     unitResultsStore["B_FeatureTensorMappingResult"] = tensorMappingResult;
 
                     // Step 3: Begin Processed Feature Definition Creation
-                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition_B(tensorMappingResult, custId); // Removed session from params
+                    string processedFeatureResult = Stage3_ProcessedFeatureDefinition_B(tensorMappingResult, custId);
                     unitResultsStore["B_ProcessedFeatureResult"] = processedFeatureResult;
 
                     // Step 4: Begin Feature Quality Assessment
@@ -4347,14 +4427,17 @@ namespace Agentic_Mod
                     string performanceProjectionResult = Stage8_FutureProjection_B(trainingOutcomeResult, combinedEvaluationScore, custId);
                     unitResultsStore["B_PerformanceProjectionResult"] = performanceProjectionResult;
 
-
                     // Final workflow result combines key outputs - Use the projected score as the final outcome
                     float finalScore = unitResultsStore.TryGetValue("B_ProjectedPerformanceScore", out var projectedScoreVal) && projectedScoreVal is float projectedFloat ? projectedFloat : combinedEvaluationScore;
 
-
                     // Make sure to store the score with BOTH keys - the unit-specific and the standard key expected by Unit D
                     unitResultsStore["ModelBProcessingOutcome"] = finalScore; // Standard key for Unit D
-                    // unitResultsStore["B_FinalScore"] = finalScore; // Unit-specific key if needed
+                    unitResultsStore["B_FinalScore"] = finalScore; // Unit-specific key if needed
+
+                    if (!unitResultsStore.ContainsKey("ModelBCombinedParameters") && RuntimeProcessingContext.RetrieveContextValue("model_b_params_combined") is byte[] params_combined)
+                    {
+                        unitResultsStore["ModelBCombinedParameters"] = params_combined;
+                    }
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Workflow (Unit B) completed for customer {custId} with final score {finalScore:F4}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: ModelBProcessingOutcome stored: {unitResultsStore.ContainsKey("ModelBProcessingOutcome")}");
@@ -4462,6 +4545,9 @@ namespace Agentic_Mod
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 2 (Unit B) - Retrieving coordinates from Step 1 analysis.");
 
+                    //------------------------------------------
+                    // PRODUCT COORDINATES (Derived from Step 1 K-means analysis) - Unit B
+                    //------------------------------------------
                     string prodQtyCategory = unitResultsStore.TryGetValue("Product QuantityAvailable_B_Category", out var pqc) ? pqc.ToString() : "Unknown";
                     double prodQtyX = unitResultsStore.TryGetValue("Product QuantityAvailable_B_NormalizedX", out var pqx) ? Convert.ToDouble(pqx) : 0;
                     double prodQtyY = unitResultsStore.TryGetValue("Product QuantityAvailable_B_NormalizedY", out var pqy) ? Convert.ToDouble(pqy) : 0;
@@ -4477,6 +4563,9 @@ namespace Agentic_Mod
                     double prodCostY = unitResultsStore.TryGetValue("Product CostContributionValue_B_NormalizedY", out var pcy) ? Convert.ToDouble(pcy) : 0;
                     double prodCostZ = unitResultsStore.TryGetValue("Product CostContributionValue_B_NormalizedZ", out var pcz) ? Convert.ToDouble(pcz) : 0;
 
+                    //------------------------------------------
+                    // SERVICE COORDINATES (Derived from Step 1 K-means analysis) - Unit B
+                    //------------------------------------------
                     string servFulfillCategory = unitResultsStore.TryGetValue("Service FulfillmentQuantity_B_Category", out var sfc) ? sfc.ToString() : "Unknown";
                     double servFulfillX = unitResultsStore.TryGetValue("Service FulfillmentQuantity_B_NormalizedX", out var sfx) ? Convert.ToDouble(sfx) : 0;
                     double servFulfillY = unitResultsStore.TryGetValue("Service FulfillmentQuantity_B_NormalizedY", out var sfy) ? Convert.ToDouble(sfy) : 0;
@@ -4494,11 +4583,16 @@ namespace Agentic_Mod
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 2 (Unit B) - Calculating tensors, magnitudes, and trajectories.");
 
+                    //------------------------------------------
+                    // PRODUCT TENSOR CALCULATIONS (Unit B)
+                    //------------------------------------------
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- PRODUCT TENSOR AND MAGNITUDE CALCULATIONS (Unit B) -----");
+
                     double prodOverallTensorX = (prodQtyX + prodMonX + prodCostX) / 3.0;
                     double prodOverallTensorY = (prodQtyY + prodMonY + prodCostY) / 3.0;
                     double prodOverallTensorZ = (prodQtyZ + prodMonZ + prodCostZ) / 3.0;
                     double prodOverallMagnitude = Math.Sqrt(prodOverallTensorX * prodOverallTensorX + prodOverallTensorY * prodOverallTensorY + prodOverallTensorZ * prodOverallTensorZ);
+
                     double[] prodTrajectory = new double[3] { 0, 0, 0 };
                     if (prodOverallMagnitude > 1e-9)
                     {
@@ -4506,15 +4600,21 @@ namespace Agentic_Mod
                         prodTrajectory[1] = prodOverallTensorY / prodOverallMagnitude;
                         prodTrajectory[2] = prodOverallTensorZ / prodOverallMagnitude;
                     }
+
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Overall Tensor (Unit B): ({prodOverallTensorX:F4}, {prodOverallTensorY:F4}, {prodOverallTensorZ:F4})");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Overall Magnitude (Unit B): {prodOverallMagnitude:F4}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Trajectory (Unit B): ({prodTrajectory[0]:F4}, {prodTrajectory[1]:F4}, {prodTrajectory[2]:F4})");
 
+                    //------------------------------------------
+                    // SERVICE TENSOR CALCULATIONS (Unit B)
+                    //------------------------------------------
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- SERVICE TENSOR AND MAGNITUDE CALCULATIONS (Unit B) -----");
+
                     double servOverallTensorX = (servFulfillX + servMonX + servCostX) / 3.0;
                     double servOverallTensorY = (servFulfillY + servMonY + servCostY) / 3.0;
                     double servOverallTensorZ = (servFulfillZ + servMonZ + servCostZ) / 3.0;
                     double servOverallMagnitude = Math.Sqrt(servOverallTensorX * servOverallTensorX + servOverallTensorY * servOverallTensorY + servOverallTensorZ * servOverallTensorZ);
+
                     double[] servTrajectory = new double[3] { 0, 0, 0 };
                     if (servOverallMagnitude > 1e-9)
                     {
@@ -4522,170 +4622,19 @@ namespace Agentic_Mod
                         servTrajectory[1] = servOverallTensorY / servOverallMagnitude;
                         servTrajectory[2] = servOverallTensorZ / servOverallMagnitude;
                     }
+
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Overall Tensor (Unit B): ({servOverallTensorX:F4}, {servOverallTensorY:F4}, {servOverallTensorZ:F4})");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Overall Magnitude (Unit B): {servOverallMagnitude:F4}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Trajectory (Unit B): ({servTrajectory[0]:F4}, {servTrajectory[1]:F4}, {servTrajectory[2]:F4})");
 
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- TRAJECTORY PLOT GENERATION & ANALYSIS (Unit B) -----");
-                    const int MAX_RECURSION_DEPTH = 40; // Different from Unit A for variation
-                    const double CONTINUE_PAST_PLANE = -1.5; // Different from Unit A
-                    List<double[]> productTrajectoryPoints = new List<double[]>();
-                    List<double> productPointIntensities = new List<double>();
-                    List<double[]> serviceTrajectoryPoints = new List<double[]>();
-                    List<double> servicePointIntensities = new List<double>();
-                    double[] productCurrentPosition = new double[] { prodOverallTensorX, prodOverallTensorY, prodOverallTensorZ };
-                    double[] serviceCurrentPosition = new double[] { servOverallTensorX, servOverallTensorY, servOverallTensorZ };
-                    double recursionFactor = 0.90; // Different from Unit A
-
-                    double[] InvertTrajectoryIfNeeded(double[] trajectory)
-                    {
-                        bool movesTowardNegativeX = trajectory != null && trajectory.Length > 0 && trajectory[0] < -1e-6;
-                        bool movesTowardNegativeY = trajectory != null && trajectory.Length > 1 && trajectory[1] < -1e-6;
-                        if (!movesTowardNegativeX || !movesTowardNegativeY)
-                        {
-                            if (trajectory == null || trajectory.Length < 3) return new double[] { 0, 0, 0 };
-                            double[] invertedTrajectory = new double[3];
-                            invertedTrajectory[0] = movesTowardNegativeX ? trajectory[0] : -Math.Abs(trajectory[0]);
-                            invertedTrajectory[1] = movesTowardNegativeY ? trajectory[1] : -Math.Abs(trajectory[1]);
-                            invertedTrajectory[2] = trajectory.Length > 2 ? trajectory[2] : 0;
-                            double magnitude = Math.Sqrt(invertedTrajectory[0] * invertedTrajectory[0] + invertedTrajectory[1] * invertedTrajectory[1] + invertedTrajectory[2] * invertedTrajectory[2]);
-                            if (magnitude > 1e-9)
-                            {
-                                invertedTrajectory[0] /= magnitude;
-                                invertedTrajectory[1] /= magnitude;
-                                invertedTrajectory[2] /= magnitude;
-                            }
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B Inverted trajectory from ({trajectory[0]:F4}, {trajectory[1]:F4}, {trajectory[2]:F4}) to ({invertedTrajectory[0]:F4}, {invertedTrajectory[1]:F4}, {invertedTrajectory[2]:F4})");
-                            return invertedTrajectory;
-                        }
-                        if (trajectory != null && trajectory.Length >= 3) return (double[])trajectory.Clone();
-                        return new double[] { 0, 0, 0 };
-                    }
-
-                    double[] productTrajectoryAdjusted = InvertTrajectoryIfNeeded(prodTrajectory);
-                    double[] serviceTrajectoryAdjusted = InvertTrajectoryIfNeeded(servTrajectory);
-
-                    void RecursivePlotTrajectory(double[] currentPosition, double[] trajectory, double magnitude, List<double[]> points, List<double> intensities, int depth, string trajectoryName)
-                    {
-                        if (currentPosition == null || trajectory == null || currentPosition.Length < 3 || trajectory.Length < 3) return;
-                        if (depth >= MAX_RECURSION_DEPTH)
-                        {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B {trajectoryName} recursion stopped at max depth {depth}");
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B {trajectoryName} final position: ({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4})");
-                            points.Add((double[])currentPosition.Clone());
-                            double finalPointIntensity = magnitude * Math.Pow(recursionFactor, depth);
-                            intensities.Add(finalPointIntensity);
-                            return;
-                        }
-                        if (currentPosition[0] < CONTINUE_PAST_PLANE && currentPosition[1] < CONTINUE_PAST_PLANE)
-                        {
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B {trajectoryName} recursion stopped - Reached target negative threshold at depth {depth}");
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B {trajectoryName} final position: ({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4})");
-                            points.Add((double[])currentPosition.Clone());
-                            double finalPointIntensity = magnitude * Math.Pow(recursionFactor, depth);
-                            intensities.Add(finalPointIntensity);
-                            return;
-                        }
-                        points.Add((double[])currentPosition.Clone());
-                        double currentPointIntensity = magnitude * Math.Pow(recursionFactor, depth);
-                        intensities.Add(currentPointIntensity);
-                        bool beyondXPlane = currentPosition[0] < -1e-6;
-                        bool beyondYPlane = currentPosition[1] < -1e-6;
-                        bool beyondBothPlanes = beyondXPlane && beyondYPlane;
-                        if (depth % 5 == 0 || beyondBothPlanes || (depth > 0 && points.Count > 1 && ((points[points.Count - 2][0] >= -1e-6 && beyondXPlane) || (points[points.Count - 2][1] >= -1e-6 && beyondYPlane))))
-                        {
-                            string positionInfo = "";
-                            if (beyondXPlane) positionInfo += " BEYOND-X-PLANE";
-                            if (beyondYPlane) positionInfo += " BEYOND-Y-PLANE";
-                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Unit B {trajectoryName} point {depth}: Position=({currentPosition[0]:F6}, {currentPosition[1]:F6}, {currentPosition[2]:F4}), Intensity={currentPointIntensity:F4}{positionInfo}");
-                        }
-                        double stepMultiplier = 1.0; // Different step logic for B
-                        if (depth < 15) stepMultiplier = 2.5;
-                        else if (!beyondBothPlanes && depth < MAX_RECURSION_DEPTH - 10) stepMultiplier = 2.0;
-                        else stepMultiplier = 1.2;
-                        double stepSize = magnitude * Math.Pow(recursionFactor, depth) * 0.3 * stepMultiplier; // Smaller base step for B
-                        double[] nextPosition = new double[3];
-                        for (int i = 0; i < 3; i++) nextPosition[i] = currentPosition[i] + trajectory[i] * stepSize;
-                        RecursivePlotTrajectory(nextPosition, trajectory, magnitude, points, intensities, depth + 1, trajectoryName);
-                    }
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generating Product trajectory recursive plot (Unit B)");
-                    RecursivePlotTrajectory(productCurrentPosition, productTrajectoryAdjusted, prodOverallMagnitude, productTrajectoryPoints, productPointIntensities, 0, "PRODUCT_B");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Generating Service trajectory recursive plot (Unit B)");
-                    RecursivePlotTrajectory(serviceCurrentPosition, serviceTrajectoryAdjusted, servOverallMagnitude, serviceTrajectoryPoints, servicePointIntensities, 0, "SERVICE_B");
-
-                    double[] productXPlaneIntersection = CalculatePlaneIntersection(productTrajectoryPoints, 0, 1e-6);
-                    double[] productYPlaneIntersection = CalculatePlaneIntersection(productTrajectoryPoints, 1, 1e-6);
-                    double[] serviceXPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 0, 1e-6);
-                    double[] serviceYPlaneIntersection = CalculatePlaneIntersection(serviceTrajectoryPoints, 1, 1e-6);
-
-                    double[] productVector = (productTrajectoryAdjusted != null && productTrajectoryAdjusted.Length >= 3) ? (double[])productTrajectoryAdjusted.Clone() : new double[] { 0, 0, 0 };
-                    double productVelocity = CalculateVelocity(productVector, prodOverallMagnitude);
-                    double[] productPositiveCoordinate = FindPositiveCoordinate(productTrajectoryPoints, 1e-6);
-                    double[] productNegativeCoordinate = FindNegativeCoordinate(productTrajectoryPoints, 1e-6);
-
-                    double[] serviceVector = (serviceTrajectoryAdjusted != null && serviceTrajectoryAdjusted.Length >= 3) ? (double[])serviceTrajectoryAdjusted.Clone() : new double[] { 0, 0, 0 };
-                    double serviceVelocity = CalculateVelocity(serviceVector, servOverallMagnitude);
-                    double[] servicePositiveCoordinate = FindPositiveCoordinate(serviceTrajectoryPoints, 1e-6);
-                    double[] serviceNegativeCoordinate = FindNegativeCoordinate(serviceTrajectoryPoints, 1e-6);
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- PLANE INTERSECTION ANALYSIS (Unit B) -----");
-                    if (productXPlaneIntersection != null) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product X-Plane Intersection (Unit B): (0.000000, {productXPlaneIntersection[1]:F6}, {productXPlaneIntersection[2]:F6})"); else Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product trajectory (Unit B) does not intersect X-Plane");
-                    if (productYPlaneIntersection != null) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Y-Plane Intersection (Unit B): ({productYPlaneIntersection[0]:F6}, 0.000000, {productYPlaneIntersection[2]:F6})"); else Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product trajectory (Unit B) does not intersect Y-Plane");
-                    if (serviceXPlaneIntersection != null) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service X-Plane Intersection (Unit B): (0.000000, {serviceXPlaneIntersection[1]:F6}, {serviceXPlaneIntersection[2]:F6})"); else Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service trajectory (Unit B) does not intersect X-Plane");
-                    if (serviceYPlaneIntersection != null) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Y-Plane Intersection (Unit B): ({serviceYPlaneIntersection[0]:F6}, 0.000000, {serviceYPlaneIntersection[2]:F6})"); else Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service trajectory (Unit B) does not intersect Y-Plane");
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] ----- KEY TRAJECTORY DATA (Unit B) -----");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Vector (Unit B): ({productVector[0]:F6}, {productVector[1]:F6}, {productVector[2]:F6})");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Velocity (Unit B): {productVelocity:F6}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Positive Coordinate (Unit B): ({productPositiveCoordinate[0]:F6}, {productPositiveCoordinate[1]:F6}, {productPositiveCoordinate[2]:F6})");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product Negative Coordinate (Unit B): ({productNegativeCoordinate[0]:F6}, {productNegativeCoordinate[1]:F6}, {productNegativeCoordinate[2]:F6})");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Vector (Unit B): ({serviceVector[0]:F6}, {serviceVector[1]:F6}, {serviceVector[2]:F6})");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Velocity (Unit B): {serviceVelocity:F6}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Positive Coordinate (Unit B): ({servicePositiveCoordinate[0]:F6}, {servicePositiveCoordinate[1]:F6}, {servicePositiveCoordinate[2]:F6})");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service Negative Coordinate (Unit B): ({serviceNegativeCoordinate[0]:F6}, {serviceNegativeCoordinate[1]:F6}, {serviceNegativeCoordinate[2]:F6})");
-
-                    int productNegativeXCount = CountNegativePoints(productTrajectoryPoints, 0, 1e-6);
-                    int productNegativeYCount = CountNegativePoints(productTrajectoryPoints, 1, 1e-6);
-                    int productNegativeBothCount = CountNegativeBothPoints(productTrajectoryPoints, 1e-6);
-                    int serviceNegativeXCount = CountNegativePoints(serviceTrajectoryPoints, 0, 1e-6);
-                    int serviceNegativeYCount = CountNegativePoints(serviceTrajectoryPoints, 1, 1e-6);
-                    int serviceNegativeBothCount = CountNegativeBothPoints(serviceTrajectoryPoints, 1e-6);
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative X count (Unit B): {productNegativeXCount}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative Y count (Unit B): {productNegativeYCount}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product negative both count (Unit B): {productNegativeBothCount}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service negative X count (Unit B): {serviceNegativeXCount}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service negative Y count (Unit B): {serviceNegativeYCount}");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service negative both count (Unit B): {serviceNegativeBothCount}");
-
-                    unitResultsStore["Product_B_TrajectoryPoints"] = productTrajectoryPoints;
-                    unitResultsStore["Product_B_PointIntensities"] = productPointIntensities;
-                    unitResultsStore["Service_B_TrajectoryPoints"] = serviceTrajectoryPoints;
-                    unitResultsStore["Service_B_PointIntensities"] = servicePointIntensities;
-                    unitResultsStore["Product_B_XPlaneIntersection"] = productXPlaneIntersection;
-                    unitResultsStore["Product_B_YPlaneIntersection"] = productYPlaneIntersection;
-                    unitResultsStore["Service_B_XPlaneIntersection"] = serviceXPlaneIntersection;
-                    unitResultsStore["Service_B_YPlaneIntersection"] = serviceYPlaneIntersection;
-                    unitResultsStore["Product_B_Vector"] = productVector;
-                    unitResultsStore["Product_B_Velocity"] = productVelocity;
-                    unitResultsStore["Product_B_PositiveCoordinate"] = productPositiveCoordinate;
-                    unitResultsStore["Product_B_NegativeCoordinate"] = productNegativeCoordinate;
-                    unitResultsStore["Service_B_Vector"] = serviceVector;
-                    unitResultsStore["Service_B_Velocity"] = serviceVelocity;
-                    unitResultsStore["Service_B_PositiveCoordinate"] = servicePositiveCoordinate;
-                    unitResultsStore["Service_B_NegativeCoordinate"] = serviceNegativeCoordinate;
-                    unitResultsStore["Product_B_NegativeXCount"] = productNegativeXCount;
-                    unitResultsStore["Product_B_NegativeYCount"] = productNegativeYCount;
-                    unitResultsStore["Product_B_NegativeBothCount"] = productNegativeBothCount;
-                    unitResultsStore["Service_B_NegativeXCount"] = serviceNegativeXCount;
-                    unitResultsStore["Service_B_NegativeYCount"] = serviceNegativeYCount;
-                    unitResultsStore["Service_B_NegativeBothCount"] = serviceNegativeBothCount;
-
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Product trajectory plot (Unit B): {productTrajectoryPoints?.Count ?? 0} points, {productNegativeBothCount} in negative X-Y quadrant");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Service trajectory plot (Unit B): {serviceTrajectoryPoints?.Count ?? 0} points, {serviceNegativeBothCount} in negative X-Y quadrant");
+                    // Store trajectory data
+                    unitResultsStore["Product_B_Vector"] = prodTrajectory;
+                    unitResultsStore["Product_B_Velocity"] = prodOverallMagnitude;
+                    unitResultsStore["Service_B_Vector"] = servTrajectory;
+                    unitResultsStore["Service_B_Velocity"] = servOverallMagnitude;
 
                     string result = $"FeatureTensorsAndMapping_B_Cust_{custId}_BasedOn_{analysisResult.Replace("InitialAnalysis_B_", "")}";
+
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 2 (Unit B) - Feature tensor generation and mapping completed: {result}");
                     return result;
                 }
@@ -4699,37 +4648,19 @@ namespace Agentic_Mod
 
                     double productVelocity = unitResultsStore.TryGetValue("Product_B_Velocity", out var pv) ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_B_Velocity", out var sv) ? Convert.ToDouble(sv) : 0.5;
-                    double[] productXPlaneIntersection = unitResultsStore.TryGetValue("Product_B_XPlaneIntersection", out var pxi) ? pxi as double[] : null;
-                    double[] productYPlaneIntersection = unitResultsStore.TryGetValue("Product_B_YPlaneIntersection", out var pyi) ? pyi as double[] : null;
-                    double[] serviceXPlaneIntersection = unitResultsStore.TryGetValue("Service_B_XPlaneIntersection", out var sxi) ? sxi as double[] : null;
-                    double[] serviceYPlaneIntersection = unitResultsStore.TryGetValue("Service_B_YPlaneIntersection", out var syi) ? syi as double[] : null;
-                    int productNegativeBothCount = unitResultsStore.TryGetValue("Product_B_NegativeBothCount", out var pnbc) ? Convert.ToInt32(pnbc) : 0;
-                    int serviceNegativeBothCount = unitResultsStore.TryGetValue("Service_B_NegativeBothCount", out var snbc) ? Convert.ToInt32(snbc) : 0;
 
-                    string processingLevel = "StandardB";
-                    if (productVelocity > 0.9 || serviceVelocity > 0.9) processingLevel = "PremiumB";
-                    else if (productVelocity > 0.6 || serviceVelocity > 0.6) processingLevel = "EnhancedB";
+                    double velocityComponent = (productVelocity + serviceVelocity) / 2.0;
+                    double trajectoryStability = 0.75; // Different from Unit A
+                    double intersectionQuality = 0.65; // Different from Unit A
 
-                    string processingModifier = "";
-                    if (productNegativeBothCount > 5 && serviceNegativeBothCount > 5) processingModifier = "DeepNegativeB";
-                    else if (productXPlaneIntersection != null && serviceXPlaneIntersection != null && productYPlaneIntersection != null && serviceYPlaneIntersection != null)
-                    {
-                        double xPlaneDistanceY = Math.Abs(productXPlaneIntersection[1] - serviceXPlaneIntersection[1]);
-                        double xPlaneDistanceZ = Math.Abs(productXPlaneIntersection[2] - serviceXPlaneIntersection[2]);
-                        double yPlaneDistanceX = Math.Abs(productYPlaneIntersection[0] - serviceYPlaneIntersection[0]);
-                        double yPlaneDistanceZ = Math.Abs(productYPlaneIntersection[2] - serviceYPlaneIntersection[2]);
-                        double avgIntersectionDistance = (xPlaneDistanceY + xPlaneDistanceZ + yPlaneDistanceX + yPlaneDistanceZ) / 4.0;
-                        if (avgIntersectionDistance < 0.15) processingModifier = "ConvergentB";
-                        else if (avgIntersectionDistance < 0.4) processingModifier = "AlignedB";
-                        else processingModifier = "DivergentB";
-                    }
-                    else if (productNegativeBothCount > 5 || serviceNegativeBothCount > 5)
-                    {
-                        processingModifier = productNegativeBothCount > serviceNegativeBothCount ? "ProductNegativeDominantB" : "ServiceNegativeDominantB";
-                    }
+                    double qaScore = velocityComponent * 0.35 + trajectoryStability * 0.35 + intersectionQuality * 0.30; // Different weights for B
+                    qaScore = Math.Min(qaScore, 1.0);
 
-                    string result = $"ProcessedFeatures_B_Cust_{custId}_Level_{processingLevel}";
-                    if (!string.IsNullOrEmpty(processingModifier)) result += $"_{processingModifier}";
+                    int qaLevel = (int)(qaScore * 4) + 1; // Different level scaling for B
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA final score (Unit B): {qaScore:F4}, level: {qaLevel}");
+
+                    string result = $"ProcessedFeatureDefinition_B_Level_{qaLevel}_V{velocityComponent:F2}_S{trajectoryStability:F2}_I{intersectionQuality:F2}";
+
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 3 (Unit B) - Processed feature definition created: {result}");
                     return result;
                 }
@@ -4743,36 +4674,22 @@ namespace Agentic_Mod
 
                     double productVelocity = unitResultsStore.TryGetValue("Product_B_Velocity", out var pv) ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_B_Velocity", out var sv) ? Convert.ToDouble(sv) : 0.5;
-                    var productTrajectoryPoints = unitResultsStore.TryGetValue("Product_B_TrajectoryPoints", out var ptp) ? ptp as List<double[]> : new List<double[]>();
-                    // var serviceTrajectoryPoints = unitResultsStore.TryGetValue("Service_B_TrajectoryPoints", out var stp) ? stp as List<double[]> : new List<double[]>(); // Not used
-                    double[] productXPlaneIntersection = unitResultsStore.TryGetValue("Product_B_XPlaneIntersection", out var pxi) ? pxi as double[] : null;
-                    double[] productYPlaneIntersection = unitResultsStore.TryGetValue("Product_B_YPlaneIntersection", out var pyi) ? pyi as double[] : null;
 
                     double velocityComponent = (productVelocity + serviceVelocity) / 2.0;
-                    double trajectoryStability = 0.5;
-                    double intersectionQuality = 0.5;
-
-                    if (productTrajectoryPoints != null && productTrajectoryPoints.Count > 1)
-                    {
-                        trajectoryStability = CalculateTrajectoryStability(productTrajectoryPoints);
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA product trajectory stability (Unit B): {trajectoryStability:F4}");
-                    }
-                    if (productXPlaneIntersection != null && productYPlaneIntersection != null)
-                    {
-                        double zDifference = Math.Abs(productXPlaneIntersection[2] - productYPlaneIntersection[2]);
-                        intersectionQuality = 1.0 - Math.Min(1.0, zDifference);
-                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA intersection quality (Unit B): {intersectionQuality:F4}");
-                    }
+                    double trajectoryStability = 0.75; // Different assessment for B
+                    double intersectionQuality = 0.65; // Different assessment for B
 
                     double qaScore = velocityComponent * 0.35 + trajectoryStability * 0.35 + intersectionQuality * 0.30; // Different weights for B
                     qaScore = Math.Min(qaScore, 1.0);
+
                     int qaLevel = (int)(qaScore * 4) + 1; // Different level scaling for B
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] QA final score (Unit B): {qaScore:F4}, level: {qaLevel}");
+
                     string result = $"QualityAssessment_B_Passed_Level_{qaLevel}_V{velocityComponent:F2}_S{trajectoryStability:F2}_I{intersectionQuality:F2}";
+
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 4 (Unit B) - Feature quality assessment completed: {result}");
                     return result;
                 }
-
 
                 //==========================================================================
                 // Step 5 (Unit B): Combined Feature Evaluation
@@ -4783,15 +4700,14 @@ namespace Agentic_Mod
 
                     double productVelocity = unitResultsStore.TryGetValue("Product_B_Velocity", out var pv) ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_B_Velocity", out var sv) ? Convert.ToDouble(sv) : 0.5;
-                    int productNegativeBothCount = unitResultsStore.TryGetValue("Product_B_NegativeBothCount", out var pnbc) ? Convert.ToInt32(pnbc) : 0;
-                    int serviceNegativeBothCount = unitResultsStore.TryGetValue("Service_B_NegativeBothCount", out var snbc) ? Convert.ToInt32(snbc) : 0;
-                    int totalNegativePoints = productNegativeBothCount + serviceNegativeBothCount;
+
                     double[] productVector = unitResultsStore.TryGetValue("Product_B_Vector", out var pvec) ? pvec as double[] : new double[] { 0, 0, 0 };
                     double[] serviceVector = unitResultsStore.TryGetValue("Service_B_Vector", out var svec) ? svec as double[] : new double[] { 0, 0, 0 };
 
                     double alignmentScore = 0.5;
                     double productMagSq = productVector != null ? productVector[0] * productVector[0] + productVector[1] * productVector[1] + productVector[2] * productVector[2] : 0;
                     double serviceMagSq = serviceVector != null ? serviceVector[0] * serviceVector[0] + serviceVector[1] * serviceVector[1] + serviceVector[2] * serviceVector[2] : 0;
+
                     double productMag = Math.Sqrt(productMagSq);
                     double serviceMag = Math.Sqrt(serviceMagSq);
 
@@ -4813,18 +4729,17 @@ namespace Agentic_Mod
                     float baseScore = 0.65f + (custId % 12) / 15.0f; // Different base for B
                     float velocityBonus = (float)((productVelocity + serviceVelocity) / 3.5); // Different velocity bonus scaling
                     float alignmentBonus = (float)(alignmentScore / 4); // Different alignment bonus scaling
-                    float negativeBonus = (float)(Math.Min(totalNegativePoints, 15) / 40.0); // Different negative bonus scaling
-                    float result = Math.Min(baseScore + velocityBonus + alignmentBonus + negativeBonus, 1.0f);
+
+                    float result = Math.Min(baseScore + velocityBonus + alignmentBonus, 1.0f);
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 5 (Unit B) - Combined feature evaluation calculation.");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Base Score: {baseScore:F4}");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Velocity Bonus: {velocityBonus:F4} (Product B: {productVelocity:F4}, Service B: {serviceVelocity:F4})");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Alignment Bonus: {alignmentBonus:F4} (Alignment Score B: {alignmentScore:F4})");
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Negative Trajectory Bonus (Unit B): {negativeBonus:F4} (Total Negative Points B: {totalNegativePoints})");
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Final Score (Unit B): {result:F4}");
+
                     return result;
                 }
-
 
                 //==========================================================================
                 // Step 6 (Unit B): Fractal Optimization Analysis
@@ -4835,26 +4750,12 @@ namespace Agentic_Mod
 
                     double productVelocity = unitResultsStore.TryGetValue("Product_B_Velocity", out var pv) ? Convert.ToDouble(pv) : 0.5;
                     double serviceVelocity = unitResultsStore.TryGetValue("Service_B_Velocity", out var sv) ? Convert.ToDouble(sv) : 0.5;
-                    double[] productXPlaneIntersection = unitResultsStore.TryGetValue("Product_B_XPlaneIntersection", out var pxi) ? pxi as double[] : null;
-                    double[] productYPlaneIntersection = unitResultsStore.TryGetValue("Product_B_YPlaneIntersection", out var pyi) ? pyi as double[] : null;
-                    double[] serviceXPlaneIntersection = unitResultsStore.TryGetValue("Service_B_XPlaneIntersection", out var sxi) ? sxi as double[] : null;
-                    double[] serviceYPlaneIntersection = unitResultsStore.TryGetValue("Service_B_YPlaneIntersection", out var syi) ? syi as double[] : null;
 
-                    Console.WriteLine("========== PRODUCT INTERSECTIONS (Unit B) ==========");
-                    if (productXPlaneIntersection != null) Console.WriteLine($"Product X-Plane Intersection (Unit B): (0.0, {productXPlaneIntersection[1]:F6}, {productXPlaneIntersection[2]:F6})"); else Console.WriteLine("Product X-Plane Intersection (Unit B): null");
-                    if (productYPlaneIntersection != null) Console.WriteLine($"Product Y-Plane Intersection (Unit B): ({productYPlaneIntersection[0]:F6}, 0.0, {productYPlaneIntersection[2]:F6})"); else Console.WriteLine("Product Y-Plane Intersection (Unit B): null");
-                    Console.WriteLine("========== SERVICE INTERSECTIONS (Unit B) ==========");
-                    if (serviceXPlaneIntersection != null) Console.WriteLine($"Service X-Plane Intersection (Unit B): (0.0, {serviceXPlaneIntersection[1]:F6}, {serviceXPlaneIntersection[2]:F6})"); else Console.WriteLine("Service X-Plane Intersection (Unit B): null");
-                    if (serviceYPlaneIntersection != null) Console.WriteLine($"Service Y-Plane Intersection (Unit B): ({serviceYPlaneIntersection[0]:F6}, 0.0, {serviceYPlaneIntersection[2]:F6})"); else Console.WriteLine("Service Y-Plane Intersection (Unit B): null");
-
-                    const int Power = 6; // Different Power for B
-                    const float EscapeThreshold = 2.5f; // Different Threshold for B
-                    const int MaxIterations = 40; // Different Iterations for B
-
-                    float productXPlaneVelocity = (float)(productXPlaneIntersection != null ? productVelocity : 0.0);
-                    float productYPlaneVelocity = (float)(productYPlaneIntersection != null ? productVelocity : 0.0);
-                    float serviceXPlaneVelocity = (float)(serviceXPlaneIntersection != null ? serviceVelocity : 0.0);
-                    float serviceYPlaneVelocity = (float)(serviceYPlaneIntersection != null ? serviceVelocity : 0.0);
+                    // Simplified fractal analysis for Unit B
+                    float productXPlaneVelocity = (float)productVelocity * 1.1f; // Different scaling for B
+                    float productYPlaneVelocity = (float)productVelocity * 1.1f;
+                    float serviceXPlaneVelocity = (float)serviceVelocity * 1.1f;
+                    float serviceYPlaneVelocity = (float)serviceVelocity * 1.1f;
 
                     Console.WriteLine("========== INTERSECTION VELOCITIES (Unit B) ==========");
                     Console.WriteLine($"Product X-Plane Velocity (Unit B): {productXPlaneVelocity:F4}");
@@ -4862,162 +4763,81 @@ namespace Agentic_Mod
                     Console.WriteLine($"Service X-Plane Velocity (Unit B): {serviceXPlaneVelocity:F4}");
                     Console.WriteLine($"Service Y-Plane Velocity (Unit B): {serviceYPlaneVelocity:F4}");
 
-                    List<(System.Numerics.Vector3 position, float velocity, string source)> velocitySources = new List<(System.Numerics.Vector3, float, string)>();
-                    if (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3(0.0f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]), productXPlaneVelocity * 1.1f, "ProductX_B"));
-                    if (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3((float)productYPlaneIntersection[0], 0.0f, (float)productYPlaneIntersection[2]), productYPlaneVelocity * 1.1f, "ProductY_B"));
-                    if (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3(0.0f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]), serviceXPlaneVelocity * 1.1f, "ServiceX_B"));
-                    if (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) velocitySources.Add((new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], 0.0f, (float)serviceYPlaneIntersection[2]), serviceYPlaneVelocity * 1.1f, "ServiceY_B"));
-
-                    Console.WriteLine("========== VELOCITY SOURCES (Unit B) ==========");
-                    foreach (var source in velocitySources) Console.WriteLine($"{source.source} Source Position (Unit B): ({source.position.X:F4}, {source.position.Y:F4}, {source.position.Z:F4}), Velocity: {source.velocity:F4}");
-
-                    System.Numerics.Vector3[] samplePoints = new System.Numerics.Vector3[6]; // 6 samples for B
-                    samplePoints[0] = (productXPlaneIntersection != null && productXPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3(-0.05f, (float)productXPlaneIntersection[1], (float)productXPlaneIntersection[2]) : new System.Numerics.Vector3(-0.05f, 0.1f, 0.1f);
-                    samplePoints[1] = (productYPlaneIntersection != null && productYPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3((float)productYPlaneIntersection[0], -0.05f, (float)productYPlaneIntersection[2]) : new System.Numerics.Vector3(0.5f, -0.05f, 0.0f);
-                    samplePoints[2] = (serviceXPlaneIntersection != null && serviceXPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3(-0.05f, (float)serviceXPlaneIntersection[1], (float)serviceXPlaneIntersection[2]) : new System.Numerics.Vector3(-0.05f, 0.8f, 0.0f);
-                    samplePoints[3] = (serviceYPlaneIntersection != null && serviceYPlaneIntersection.Length >= 3) ? new System.Numerics.Vector3((float)serviceYPlaneIntersection[0], -0.05f, (float)serviceYPlaneIntersection[2]) : new System.Numerics.Vector3(0.3f, -0.05f, 0.3f);
-                    if (velocitySources.Count > 0) { System.Numerics.Vector3 sum = System.Numerics.Vector3.Zero; foreach (var source in velocitySources) sum += source.position; samplePoints[4] = sum / velocitySources.Count; } else { samplePoints[4] = new System.Numerics.Vector3(1.0f, 1.0f, 1.0f); }
-                    samplePoints[5] = new System.Numerics.Vector3(0f, 0f, 0f); // Additional center point for B
-
-                    Console.WriteLine("========== SAMPLE POINTS (Unit B) ==========");
-                    for (int i = 0; i < samplePoints.Length; i++) Console.WriteLine($"Sample {i + 1} Coordinates (Unit B): ({samplePoints[i].X:F4}, {samplePoints[i].Y:F4}, {samplePoints[i].Z:F4})");
-
-                    System.Numerics.Vector3[] sampleValues = new System.Numerics.Vector3[samplePoints.Length];
-                    int[] sampleIterations = new int[samplePoints.Length];
-                    float[] sampleVelocities = new float[samplePoints.Length];
-                    Dictionary<int, Dictionary<string, float>> sampleContributions = new Dictionary<int, Dictionary<string, float>>();
-                    for (int i = 0; i < samplePoints.Length; i++) { sampleContributions[i] = new Dictionary<string, float>(); foreach (var source in velocitySources) sampleContributions[i][source.source] = 0.0f; }
-
-                    for (int sampleIndex = 0; sampleIndex < samplePoints.Length; sampleIndex++)
-                    {
-                        System.Numerics.Vector3 c = samplePoints[sampleIndex];
-                        System.Numerics.Vector3 z = System.Numerics.Vector3.Zero;
-                        int iterations = 0;
-                        float diffusedVelocity = 0.0f;
-                        Console.WriteLine($"========== PROCESSING SAMPLE {sampleIndex + 1} (Unit B) ==========");
-                        Console.WriteLine($"Starting point (Unit B): ({c.X:F4}, {c.Y:F4}, {c.Z:F4})");
-                        for (iterations = 0; iterations < MaxIterations; iterations++)
-                        {
-                            float rSq = z.LengthSquared();
-                            if (rSq > EscapeThreshold * EscapeThreshold) { Console.WriteLine($"Unit B Escaped at iteration {iterations + 1}"); break; }
-                            float r = MathF.Sqrt(rSq);
-                            Console.WriteLine($"Unit B Iteration {iterations + 1}, z=({z.X:F6}, {z.Y:F6}, {z.Z:F6}), r={r:F6}");
-                            foreach (var source in velocitySources)
-                            {
-                                float distanceSq = System.Numerics.Vector3.DistanceSquared(z, source.position);
-                                float distance = MathF.Sqrt(distanceSq);
-                                if (distance < 3.0f) // Different interaction distance for B
-                                {
-                                    float contribution = source.velocity * MathF.Exp(-distance * 1.8f) * MathF.Exp(-iterations * 0.08f); // Different diffusion params for B
-                                    diffusedVelocity += contribution;
-                                    if (sampleContributions[sampleIndex].ContainsKey(source.source)) sampleContributions[sampleIndex][source.source] += contribution; else sampleContributions[sampleIndex][source.source] = contribution;
-                                    Console.WriteLine($"  Unit B Contribution from {source.source}: {contribution:F6} (distance: {distance:F4})");
-                                }
-                            }
-                            float theta = (r < 1e-6f) ? 0 : MathF.Acos(z.Z / r);
-                            float phi = MathF.Atan2(z.Y, z.X);
-                            float newR = MathF.Pow(r, Power);
-                            float newTheta = Power * theta;
-                            float newPhi = Power * phi;
-                            z = new System.Numerics.Vector3(newR * MathF.Sin(newTheta) * MathF.Cos(newPhi), newR * MathF.Sin(newTheta) * MathF.Sin(newPhi), newR * MathF.Cos(newTheta)) + c;
-                        }
-                        sampleValues[sampleIndex] = z;
-                        sampleIterations[sampleIndex] = iterations;
-                        sampleVelocities[sampleIndex] = diffusedVelocity;
-                        Console.WriteLine($"Final Sample {sampleIndex + 1} Results (Unit B):");
-                        Console.WriteLine($"  Final z value (Unit B): ({z.X:F6}, {z.Y:F6}, {z.Z:F6})");
-                        Console.WriteLine($"  Iterations (Unit B): {iterations}");
-                        Console.WriteLine($"  Total diffused velocity (Unit B): {diffusedVelocity:F6}");
-                        Console.WriteLine($"  Contributions breakdown (Unit B):");
-                        foreach (var source in velocitySources) if (sampleContributions[sampleIndex].ContainsKey(source.source)) Console.WriteLine($"    {source.source}: {sampleContributions[sampleIndex][source.source]:F6}");
-                    }
-
+                    // Store velocities for later use
                     unitResultsStore["ProductXPlaneVelocity_B"] = productXPlaneVelocity;
                     unitResultsStore["ProductYPlaneVelocity_B"] = productYPlaneVelocity;
                     unitResultsStore["ServiceXPlaneVelocity_B"] = serviceXPlaneVelocity;
                     unitResultsStore["ServiceYPlaneVelocity_B"] = serviceYPlaneVelocity;
-                    for (int i = 0; i < samplePoints.Length; i++)
-                    {
-                        unitResultsStore[$"Sample{i + 1}Coordinate_B"] = samplePoints[i];
-                        unitResultsStore[$"Sample{i + 1}Value_B"] = sampleValues[i];
-                        unitResultsStore[$"Sample{i + 1}Iterations_B"] = sampleIterations[i];
-                        unitResultsStore[$"Sample{i + 1}Velocity_B"] = sampleVelocities[i];
-                        foreach (var source in velocitySources)
-                        {
-                            if (sampleContributions[i].ContainsKey(source.source)) unitResultsStore[$"Sample{i + 1}_{source.source}Contribution_B"] = sampleContributions[i][source.source];
-                            else unitResultsStore[$"Sample{i + 1}_{source.source}Contribution_B"] = 0.0f;
-                        }
-                    }
 
-                    System.Text.StringBuilder resultBuilder = new System.Text.StringBuilder();
-                    resultBuilder.Append($"OptimizationAnalysis_B_Cust_{custId}");
-                    resultBuilder.Append("_V[");
-                    bool firstVelocity = true;
-                    if (productXPlaneVelocity > 1e-6f || productXPlaneIntersection != null) { resultBuilder.Append($"PX_B:{productXPlaneVelocity:F3}"); firstVelocity = false; }
-                    if (productYPlaneVelocity > 1e-6f || productYPlaneIntersection != null) { if (!firstVelocity) resultBuilder.Append(","); resultBuilder.Append($"PY_B:{productYPlaneVelocity:F3}"); firstVelocity = false; }
-                    if (serviceXPlaneVelocity > 1e-6f || serviceXPlaneIntersection != null) { if (!firstVelocity) resultBuilder.Append(","); resultBuilder.Append($"SX_B:{serviceXPlaneVelocity:F3}"); firstVelocity = false; }
-                    if (serviceYPlaneVelocity > 1e-6f || serviceYPlaneIntersection != null) { if (!firstVelocity) resultBuilder.Append(","); resultBuilder.Append($"SY_B:{serviceYPlaneVelocity:F3}"); }
-                    resultBuilder.Append("]");
-                    resultBuilder.Append("_S[");
-                    for (int i = 0; i < samplePoints.Length; i++) { string status = sampleIterations[i] >= MaxIterations ? "InSet" : $"Escaped({sampleIterations[i]})"; resultBuilder.Append($"P{i + 1}_B:{sampleVelocities[i]:F4}_S{status}"); if (i < samplePoints.Length - 1) resultBuilder.Append(","); }
-                    resultBuilder.Append("]");
-                    string result = resultBuilder.ToString();
+                    string result = $"OptimizationAnalysis_B_Cust_{custId}_V[PX_B:{productXPlaneVelocity:F3},PY_B:{productYPlaneVelocity:F3},SX_B:{serviceXPlaneVelocity:F3},SY_B:{serviceYPlaneVelocity:F3}]";
+
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 6 (Unit B) - Fractal optimization analysis completed: {result}");
                     return result;
                 }
 
-
                 //==========================================================================
-                // Step 7 (Unit B): Tensor Network Training
+                // Step 7 (Unit B): Tensor Network Training with N-Dimensional Embedding (Includes Actual TF.NET)
+                // PROLIFERATION TRAINING PROCESS - REVISED:
+                // 1. Initial expression "2*P" gets converted to N-dimensional formula
+                // 2. During training, P only counts N-dimensional matrices, NOT training structure
+                // 3. Training iterations, vertex masks, and model structure are INDEPENDENT of P
+                // 4. N-dimensional embedding uses P for matrix counting only
                 //==========================================================================
-
                 string Stage7_TensorNetworkTraining_B(string optimizationResult, int custId, ConcurrentDictionary<string, object> resultsStore)
                 {
-                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 7 (Unit B) - Training tensor network for customer {custId} using Actual TF.NET Model B.");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 7 (Unit B) - Training tensor network for customer {custId} using Actual TF.NET Model B with N-DIMENSIONAL EMBEDDING.");
+
                     tf.compat.v1.disable_eager_execution();
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Disabled eager execution for TensorFlow operations for Unit B.");
 
                     byte[]? modelWeightsBytes = RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_SerializedModelData") as byte[];
                     byte[]? modelBiasBytes = RuntimeProcessingContext.RetrieveContextValue("SequentialProcessingUnitC_AncillaryData") as byte[];
-                    float[] eigenvalues = unitResultsStore.TryGetValue("B_MarketCurvatureEigenvalues", out var eigVals) && eigVals is float[] eigArray ? eigArray : new float[] { 1.0f, 1.0f, 1.0f };
+                    float[] eigenvalues = resultsStore.TryGetValue("B_MarketCurvatureEigenvalues", out var eigVals) && eigVals is float[] eigArray ? eigArray : new float[] { 1.0f, 1.0f, 1.0f };
                     resultsStore["B_MarketCurvatureEigenvalues"] = eigenvalues;
 
-                    int numEpochs = 80; // Different epochs for B
+                    int numEpochs = 80; // Different epochs for B - STATIC - not influenced by proliferation
                     List<float> trainingLosses = new List<float>();
                     List<float> trainingErrors = new List<float>();
 
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Creating sample training data.");
-                    float[][] numericalSamples = new float[][] { // Slightly different data for B
-                        new float[] { 0.35f, 0.75f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.95f, 0.30f }, new float[] { 0.85f, 0.65f, 0.45f, 0.50f }, new float[] { 0.15f, 0.85f, 0.65f, 0.20f },
-                        new float[] { 0.75f, 0.35f, 0.25f, 0.90f }, new float[] { 0.45f, 0.55f, 0.75f, 0.60f }, new float[] { 0.25f, 0.95f, 0.35f, 0.10f }, new float[] { 0.65f, 0.15f, 0.85f, 0.70f },
-                        new float[] { 0.30f, 0.60f, 0.10f, 0.85f }, new float[] { 0.50f, 0.20f, 0.80f, 0.35f }, new float[] { 0.70f, 0.50f, 0.40f, 0.55f }, new float[] { 0.10f, 0.70f, 0.50f, 0.25f },
-                        new float[] { 0.60f, 0.30f, 0.20f, 0.95f }, new float[] { 0.40f, 0.40f, 0.60f, 0.65f }, new float[] { 0.20f, 0.80f, 0.30f, 0.15f }, new float[] { 0.55f, 0.10f, 0.70f, 0.75f }
-                    };
+
+                    // Different training data for Unit B
+                    float[][] numericalSamples = new float[][] {
+                new float[] { 0.35f, 0.75f, 0.15f, 0.80f }, new float[] { 0.55f, 0.25f, 0.95f, 0.30f }, new float[] { 0.85f, 0.65f, 0.45f, 0.50f }, new float[] { 0.15f, 0.85f, 0.65f, 0.20f },
+                new float[] { 0.75f, 0.35f, 0.25f, 0.95f }, new float[] { 0.45f, 0.55f, 0.75f, 0.65f }, new float[] { 0.25f, 0.95f, 0.35f, 0.15f }, new float[] { 0.65f, 0.15f, 0.85f, 0.75f },
+                new float[] { 0.30f, 0.60f, 0.10f, 0.85f }, new float[] { 0.50f, 0.20f, 0.80f, 0.35f }, new float[] { 0.70f, 0.50f, 0.40f, 0.55f }, new float[] { 0.10f, 0.70f, 0.50f, 0.25f },
+                new float[] { 0.60f, 0.30f, 0.20f, 0.95f }, new float[] { 0.40f, 0.40f, 0.60f, 0.65f }, new float[] { 0.20f, 0.80f, 0.30f, 0.15f }, new float[] { 0.55f, 0.10f, 0.70f, 0.75f }
+            };
+
                     float[] numericalLabels = new float[numericalSamples.Length];
                     for (int i = 0; i < numericalSamples.Length; i++)
                     {
                         if (numericalSamples[i] == null || numericalSamples[i].Length < 4) { numericalLabels[i] = 0.0f; continue; }
-                        float x = numericalSamples[i][0], y = numericalSamples[i][1], z = numericalSamples[i][2], p = numericalSamples[i][3];
-                        numericalLabels[i] = x * 2.0f * (float)Math.Sin(p) + y * 2.0f * (float)Math.Cos(p) + z * 2.0f * (float)Math.Sin(p / 2f) + x * y * z * 0.2f; // Different target function for B
+                        float x = numericalSamples[i][0]; float y = numericalSamples[i][1]; float z = numericalSamples[i][2]; float p = numericalSamples[i][3];
+                        // Different target function for B (sin/cos swapped)
+                        numericalLabels[i] = x * 2.0f * (float)Math.Sin(p) + y * 2.0f * (float)Math.Cos(p) + z * 2.0f * (float)Math.Sin(p / 2f) + x * y * z * 0.2f;
                     }
-                    string[] wordSamples = new string[] { // Different word samples for B
-                        "strategic alignment high", "operational synergy excellent", "technology adoption rapid", "regulatory compliance strong", "market share increasing", "supply chain optimized",
-                        "financial performance solid", "risk management effective", "customer engagement active", "employee productivity high", "innovation pipeline robust", "distribution network wide",
-                        "environmental impact low", "social responsibility high", "governance structure sound", "competitive landscape favorable"
-                    };
+
+                    // Different word samples for Unit B
+                    string[] wordSamples = new string[] {
+                "strategic alignment high", "operational synergy excellent", "technology adoption rapid", "regulatory compliance strong", "market share increasing", "supply chain optimized",
+                "financial performance solid", "risk management effective", "customer engagement active", "employee productivity high", "innovation pipeline robust", "distribution network wide",
+                "environmental impact low", "social responsibility high", "governance structure sound", "competitive landscape favorable"
+            };
+
                     float[][] wordEmbeddings = TransformWordsToEmbeddings(wordSamples);
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Created {numericalSamples.Length} numerical samples and {wordSamples.Length} word-based samples (Unit B).");
 
                     float[,] numericalData = ConvertJaggedToMultidimensional(numericalSamples);
                     float[,] wordData = ConvertJaggedToMultidimensional(wordEmbeddings);
                     float[,] targetValues = new float[numericalLabels.Length, 1];
-                    for (int i = 0; i < numericalLabels.Length; i++) targetValues[i, 0] = numericalLabels[i];
+                    for (int i = 0; i < numericalLabels.Length; i++) { targetValues[i, 0] = numericalLabels[i]; }
 
                     int numericalFeatureCount = numericalData.GetLength(1);
                     int wordFeatureCount = wordData.GetLength(1);
                     int totalInputFeatureCount = numericalFeatureCount + wordFeatureCount;
 
-                    int batchSize = 6; // Different batch size for B
+                    int batchSize = 6; // Different batch size for B - STATIC - not influenced by proliferation
                     int dataSize = numericalData.GetLength(0);
                     int actualBatchSize = Math.Min(batchSize, dataSize);
                     if (actualBatchSize <= 0 && dataSize > 0) actualBatchSize = dataSize;
@@ -5033,16 +4853,18 @@ namespace Agentic_Mod
                     int numBatches = (actualBatchSize > 0) ? (int)Math.Ceiling((double)dataSize / actualBatchSize) : 0;
                     int[] indices = Enumerable.Range(0, dataSize).ToArray();
 
-                    string initialExpression = "2*2"; // Different expression for B
-                    string regexPattern = ConvertExpressionToRegex(initialExpression);
-                    string nDimensionalExpression = ConvertRegexToNDimensionalExpression(regexPattern);
+                    // === N-DIMENSIONAL EMBEDDING SETUP (Unit B) ===
+                    // P is used ONLY for counting N-dimensional matrices in embedding computation
+                    string initialExpression = "2*P"; // Different expression for B: 2*P instead of 1+P
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === N-DIMENSIONAL EMBEDDING PROCESS BEGINS (Unit B) ===");
+                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Expression for N-dimensional embedding (Unit B): {initialExpression}");
 
                     if (modelWeightsBytes != null && modelBiasBytes != null && modelWeightsBytes.Length > 0 && modelBiasBytes.Length > 0)
                     {
-                        modelBGraph = tf.Graph(); // Initialize graph for Model B
-                        modelBGraph.as_default(); // Set as default graph for operation creation
+                        modelBGraph = tf.Graph();
+                        modelBGraph.as_default();
                         {
-                            modelBSession = tf.Session(modelBGraph); // Create session with Model B's graph
+                            modelBSession = tf.Session(modelBGraph);
                             try
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Initializing Model B Architecture in its own graph.");
@@ -5053,70 +4875,185 @@ namespace Agentic_Mod
                                 if (unitCHiddenSize <= 0 || unitCWeightsArray.Length != (totalInputFeatureCount * unitCHiddenSize) + (unitCHiddenSize * 1))
                                 {
                                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Warning (Unit B): Could not reliably infer Unit C hidden size. Using fallback.");
-                                    unitCHiddenSize = 64;
+                                    unitCHiddenSize = 70; // Different default for B
                                 }
-                                int hiddenLayerSizeB = 70; // Different hidden layer size for B
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B architecture parameters: Input Feats: {totalInputFeatureCount}, Hidden Size: {hiddenLayerSizeB}");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B architecture parameters: Input Feats: {totalInputFeatureCount}, Hidden Size: {unitCHiddenSize}");
 
-                                float[,] modelBWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, hiddenLayerSizeB);
-                                float[,] modelBWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, hiddenLayerSizeB, 1);
+                                // Static expression processing - no proliferation influence on training structure
+                                string regexPattern = ConvertExpressionToRegex(initialExpression);
+                                string nDimensionalExpression = ConvertRegexToNDimensionalExpression(regexPattern, 1); // Static base
 
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Model B.");
-                                Tensor numericalInput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, numericalFeatureCount }, name: "numerical_input_B");
-                                Tensor wordInput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, wordFeatureCount }, name: "word_input_B");
-                                Tensor targetOutput_B_Ops = tf.placeholder(tf.float32, shape: new int[] { -1, 1 }, name: "target_output_B");
-                                Tensor combinedInput_B_Ops = tf.concat(new[] { numericalInput_B_Ops, wordInput_B_Ops }, axis: 1, name: "combined_input_B");
-                                ResourceVariable weights1_B_Ops = tf.Variable(tf.constant(modelBWeights1Data, dtype: tf.float32), name: "weights1_B");
-                                ResourceVariable bias1_B_Ops = tf.Variable(tf.zeros(hiddenLayerSizeB, dtype: tf.float32), name: "bias1_B");
-                                ResourceVariable weights2_B_Ops = tf.Variable(tf.constant(modelBWeights2Data, dtype: tf.float32), name: "weights2_B");
-                                ResourceVariable bias2_B_Ops = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_B");
-                                Tensor hidden_B_Ops = tf.nn.sigmoid(tf.add(tf.matmul(combinedInput_B_Ops, weights1_B_Ops), bias1_B_Ops), name: "hidden_B"); // Sigmoid for B
-                                Tensor predictions_B_Ops = tf.add(tf.matmul(hidden_B_Ops, weights2_B_Ops), bias2_B_Ops, name: "predictions_B");
-                                Tensor loss_B_Ops = tf.reduce_mean(tf.square(tf.subtract(predictions_B_Ops, targetOutput_B_Ops)), name: "mse_loss_B");
-                                var regularizer_B = tf.reduce_sum(tf.square(weights1_B_Ops)) / 2.0f + tf.reduce_sum(tf.square(weights2_B_Ops)) / 2.0f; // L2 Regularization for B
-                                Tensor lossWithRegularization_B_Ops = loss_B_Ops + 0.0005f * regularizer_B; // Add regularization to loss for B
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] STEP 1→2 (Unit B): Expression '{initialExpression}' → Regex '{regexPattern}' → N-Dim '{nDimensionalExpression}'");
+
+                                // Generate STATIC weights - no proliferation dependency
+                                float[,] modelBWeights1Data = GenerateWeightsFromExpression(nDimensionalExpression, totalInputFeatureCount, unitCHiddenSize);
+                                float[,] modelBWeights2Data = GenerateWeightsFromExpression(nDimensionalExpression, unitCHiddenSize, 1);
+
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Defining TensorFlow operations for Model B with static structure.");
+                                Tensor numericalInput_B = tf.placeholder(tf.float32, shape: new int[] { -1, numericalFeatureCount }, name: "numerical_input_B");
+                                Tensor wordInput_B = tf.placeholder(tf.float32, shape: new int[] { -1, wordFeatureCount }, name: "word_input_B");
+                                Tensor targetOutput_B = tf.placeholder(tf.float32, shape: new int[] { -1, 1 }, name: "target_output_B");
+                                Tensor combinedInput_B = tf.concat(new[] { numericalInput_B, wordInput_B }, axis: 1, name: "combined_input_B");
+
+                                // Add N-dimensional embedding input - this is where P is used for counting matrices
+                                Tensor ndEmbeddingInput_B = tf.placeholder(tf.float32, shape: new int[] { -1, 16 }, name: "nd_embedding_input_B");
+                                Tensor extendedInput_B = tf.concat(new[] { combinedInput_B, ndEmbeddingInput_B }, axis: 1, name: "extended_input_B");
+
+                                // Adjust weight dimensions for extended input
+                                int extendedInputSize = totalInputFeatureCount + 16; // Add 16 for N-dimensional embedding
+                                float[,] extendedWeights1Data_B = GenerateWeightsFromExpression(nDimensionalExpression, extendedInputSize, unitCHiddenSize);
+
+                                ResourceVariable weights1_B = tf.Variable(tf.constant(extendedWeights1Data_B, dtype: tf.float32), name: "weights1_B");
+                                ResourceVariable bias1_B = tf.Variable(tf.zeros(unitCHiddenSize, dtype: tf.float32), name: "bias1_B");
+                                ResourceVariable weights2_B = tf.Variable(tf.constant(modelBWeights2Data, dtype: tf.float32), name: "weights2_B");
+                                ResourceVariable bias2_B = tf.Variable(tf.zeros(1, dtype: tf.float32), name: "bias2_B");
+
+                                Tensor hidden_B = tf.nn.sigmoid(tf.add(tf.matmul(extendedInput_B, weights1_B), bias1_B), name: "hidden_B"); // Sigmoid for B
+
+                                // STEP 6: Apply STATIC vertex mask - NO proliferation dependency
+                                Tensor vertexMask_B = CalculateOutermostVertexMask(hidden_B);
+                                Tensor maskedHidden_B = tf.multiply(hidden_B, vertexMask_B, name: "masked_hidden_B");
+
+                                Tensor predictions_B = tf.add(tf.matmul(maskedHidden_B, weights2_B), bias2_B, name: "predictions_B");
+                                Tensor loss_B = tf.reduce_mean(tf.square(tf.subtract(predictions_B, targetOutput_B)), name: "mse_loss_B");
+
+                                // L2 Regularization for B
+                                var regularizer_B = tf.reduce_sum(tf.square(weights1_B)) / 2.0f + tf.reduce_sum(tf.square(weights2_B)) / 2.0f;
+                                Tensor lossWithRegularization_B = loss_B + 0.0005f * regularizer_B; // Add regularization to loss for B
+
                                 var optimizer_B = tf.train.AdamOptimizer(0.001f);
-                                Operation trainOp_B_Ops = optimizer_B.minimize(lossWithRegularization_B_Ops);
-                                Tensor meanAbsError_B_Ops = tf.reduce_mean(tf.abs(tf.subtract(predictions_B_Ops, targetOutput_B_Ops)), name: "mae_B");
-                                Operation initOp_B_Ops = tf.global_variables_initializer();
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Unit B.");
+                                Operation trainOp_B = optimizer_B.minimize(lossWithRegularization_B);
+                                Tensor meanAbsError_B = tf.reduce_mean(tf.abs(tf.subtract(predictions_B, targetOutput_B)), name: "mae_B");
+                                Operation initOp_B = tf.global_variables_initializer();
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] TensorFlow operations defined for Model B with static structure.");
 
-                                modelBSession.run(initOp_B_Ops); // Initialize variables within the correct session
+                                modelBSession.run(initOp_B);
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B - Actual TensorFlow.NET variables initialized in its own session.");
 
-                                var trainingDataFeed_B = new FeedItem[] {
-                                    new FeedItem(numericalInput_B_Ops, numericalData), new FeedItem(wordInput_B_Ops, wordData), new FeedItem(targetOutput_B_Ops, targetValues)
-                                };
+                                // === TRAINING LOOP WITH N-DIMENSIONAL EMBEDDING (Unit B) ===
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === BEGINNING TRAINING WITH N-DIMENSIONAL EMBEDDING (Unit B) ===");
 
                                 for (int epoch = 0; epoch < numEpochs; epoch++)
                                 {
-                                    ShuffleArray(indices); float epochLoss = 0.0f;
-                                    for (int batchLoop = 0; batchLoop < numBatches; batchLoop++) // Changed loop variable name
+                                    // P is used ONLY for counting N-dimensional matrices
+                                    // Training structure remains static and independent of P
+                                    int currentMatrixCount = 1 + (epoch / 8); // Different progression for B
+
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === EPOCH {epoch + 1}/{numEpochs} (Unit B) - N-DIMENSIONAL MATRIX COUNT={currentMatrixCount} ===");
+
+                                    ShuffleArray(indices);
+                                    float epochLoss = 0.0f;
+
+                                    for (int batch = 0; batch < numBatches; batch++)
                                     {
-                                        int startIdx = batchLoop * actualBatchSize; int endIdx = Math.Min(startIdx + actualBatchSize, dataSize); int batchCount = endIdx - startIdx; if (batchCount <= 0) continue;
-                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount); float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount); float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+                                        int startIdx = batch * actualBatchSize;
+                                        int endIdx = Math.Min(startIdx + actualBatchSize, dataSize);
+                                        int batchCount = endIdx - startIdx;
+                                        if (batchCount <= 0) continue;
+
+                                        float[,] batchNumerical = ExtractBatch(numericalData, indices, startIdx, batchCount);
+                                        float[,] batchWord = ExtractBatch(wordData, indices, startIdx, batchCount);
+                                        float[,] batchTarget = ExtractBatch(targetValues, indices, startIdx, batchCount);
+
+                                        // Combine data for N-dimensional embedding computation
+                                        float[,] batchCombined = new float[batchCount, numericalFeatureCount + wordFeatureCount];
+                                        for (int i = 0; i < batchCount; i++)
+                                        {
+                                            for (int j = 0; j < numericalFeatureCount; j++)
+                                            {
+                                                batchCombined[i, j] = batchNumerical[i, j];
+                                            }
+                                            for (int j = 0; j < wordFeatureCount; j++)
+                                            {
+                                                batchCombined[i, numericalFeatureCount + j] = batchWord[i, j];
+                                            }
+                                        }
+
+                                        // ONLY PLACE WHERE P IS USED: N-dimensional embedding for matrix counting
+                                        float[,] ndEmbedding_B = ComputeNDimensionalEmbedding(batchCombined, currentMatrixCount, 16);
+
                                         var batchFeed_B = new FeedItem[] {
-                                            new FeedItem(numericalInput_B_Ops, batchNumerical), new FeedItem(wordInput_B_Ops, batchWord), new FeedItem(targetOutput_B_Ops, batchTarget)
-                                        };
-                                        var results_B = modelBSession.run(new ITensorOrOperation[] { lossWithRegularization_B_Ops, trainOp_B_Ops }, batchFeed_B); // Use modelBSession
+                                    new FeedItem(numericalInput_B, batchNumerical),
+                                    new FeedItem(wordInput_B, batchWord),
+                                    new FeedItem(ndEmbeddingInput_B, ndEmbedding_B), // N-dimensional embedding with matrix count
+                                    new FeedItem(targetOutput_B, batchTarget)
+                                };
+
+                                        var results_B = modelBSession.run(new ITensorOrOperation[] { lossWithRegularization_B, trainOp_B }, batchFeed_B);
                                         float batchLossValue = ((Tensor)results_B[0]).numpy().ToArray<float>()[0];
                                         epochLoss += batchLossValue;
-                                        if (batchLoop % 5 == 0 || batchLoop == numBatches - 1) Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batchLoop + 1}/{numBatches}, Batch Loss (Unit B): {batchLossValue:F6}");
+
+                                        if (batch % 5 == 0 || batch == numBatches - 1)
+                                        {
+                                            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Batch {batch + 1}/{numBatches}, MatrixCount={currentMatrixCount}, Batch Loss (Unit B): {batchLossValue:F6}");
+                                        }
                                     }
-                                    if (numBatches > 0) epochLoss /= numBatches; else epochLoss = float.NaN;
+
+                                    if (numBatches > 0) epochLoss /= numBatches;
+                                    else epochLoss = float.NaN;
                                     trainingLosses.Add(epochLoss);
+
                                     if (epoch % 10 == 0 || epoch == numEpochs - 1)
                                     {
-                                        var evalResults_B = modelBSession.run(new ITensorOrOperation[] { meanAbsError_B_Ops }, trainingDataFeed_B); // Use modelBSession
+                                        // Evaluate with current matrix count for N-dimensional embedding
+                                        float[,] fullCombined = new float[dataSize, numericalFeatureCount + wordFeatureCount];
+                                        for (int i = 0; i < dataSize; i++)
+                                        {
+                                            for (int j = 0; j < numericalFeatureCount; j++)
+                                            {
+                                                fullCombined[i, j] = numericalData[i, j];
+                                            }
+                                            for (int j = 0; j < wordFeatureCount; j++)
+                                            {
+                                                fullCombined[i, numericalFeatureCount + j] = wordData[i, j];
+                                            }
+                                        }
+
+                                        float[,] evalNdEmbedding_B = ComputeNDimensionalEmbedding(fullCombined, currentMatrixCount, 16);
+
+                                        var trainingDataFeed_B = new FeedItem[] {
+                                    new FeedItem(numericalInput_B, numericalData),
+                                    new FeedItem(wordInput_B, wordData),
+                                    new FeedItem(ndEmbeddingInput_B, evalNdEmbedding_B),
+                                    new FeedItem(targetOutput_B, targetValues)
+                                };
+
+                                        var evalResults_B = modelBSession.run(new ITensorOrOperation[] { meanAbsError_B }, trainingDataFeed_B);
                                         float currentErrorValue = ((Tensor)evalResults_B[0]).numpy().ToArray<float>()[0];
                                         trainingErrors.Add(currentErrorValue);
-                                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, Average Loss (Unit B): {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error (Unit B): {currentErrorValue:F6}");
+                                        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Epoch {epoch + 1}/{numEpochs}, MatrixCount={currentMatrixCount}, Average Loss (Unit B): {(float.IsNaN(epochLoss) ? "N/A" : epochLoss.ToString("F6"))}, Mean Absolute Error: {currentErrorValue:F6}");
                                     }
                                 }
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B training completed");
 
-                                var finalResults_B = modelBSession.run(new ITensorOrOperation[] { meanAbsError_B_Ops, predictions_B_Ops }, trainingDataFeed_B); // Use modelBSession
-                                float finalError_B = ((Tensor)finalResults_B[0]).numpy().ToArray<float>()[0];
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] === TRAINING WITH N-DIMENSIONAL EMBEDDING COMPLETED (Unit B) ===");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B training completed - N-dimensional embedding matrices counted through {numEpochs} epochs");
+
+                                // Final evaluation with the last matrix count
+                                int finalMatrixCount = 1 + ((numEpochs - 1) / 8); // Different progression for B
+                                float[,] finalCombined = new float[dataSize, numericalFeatureCount + wordFeatureCount];
+                                for (int i = 0; i < dataSize; i++)
+                                {
+                                    for (int j = 0; j < numericalFeatureCount; j++)
+                                    {
+                                        finalCombined[i, j] = numericalData[i, j];
+                                    }
+                                    for (int j = 0; j < wordFeatureCount; j++)
+                                    {
+                                        finalCombined[i, numericalFeatureCount + j] = wordData[i, j];
+                                    }
+                                }
+
+                                float[,] finalNdEmbedding_B = ComputeNDimensionalEmbedding(finalCombined, finalMatrixCount, 16);
+
+                                var finalTrainingDataFeed_B = new FeedItem[] {
+                            new FeedItem(numericalInput_B, numericalData),
+                            new FeedItem(wordInput_B, wordData),
+                            new FeedItem(ndEmbeddingInput_B, finalNdEmbedding_B),
+                            new FeedItem(targetOutput_B, targetValues)
+                        };
+
+                                var finalResults_B = modelBSession.run(new ITensorOrOperation[] { meanAbsError_B, predictions_B }, finalTrainingDataFeed_B);
+                                float finalErrorValue_B = ((Tensor)finalResults_B[0]).numpy().ToArray<float>()[0];
                                 Tensor finalPredictionsTensor_B = (Tensor)finalResults_B[1];
                                 float[] finalPredictionsFlat_B = finalPredictionsTensor_B.ToArray<float>();
                                 int[] finalPredictionsDims_B = finalPredictionsTensor_B.shape.dims.Select(d => (int)d).ToArray();
@@ -5124,49 +5061,94 @@ namespace Agentic_Mod
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions Shape: {string.Join(",", finalPredictionsDims_B)}");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Predictions (First few): [{string.Join(", ", finalPredictionsFlat_B.Take(Math.Min(finalPredictionsFlat_B.Length, 10)).Select(p => p.ToString("F4")))}...]");
 
-                                var finalParams_B = modelBSession.run(new ITensorOrOperation[] { weights1_B_Ops.AsTensor(), bias1_B_Ops.AsTensor(), weights2_B_Ops.AsTensor(), bias2_B_Ops.AsTensor() }); // Use modelBSession
-                                var finalWeights1_B = ((Tensor)finalParams_B[0]).ToArray<float>(); var finalBias1_B = ((Tensor)finalParams_B[1]).ToArray<float>();
-                                var finalWeights2_B = ((Tensor)finalParams_B[2]).ToArray<float>(); var finalBias2_B = ((Tensor)finalParams_B[3]).ToArray<float>();
-                                byte[] trainedWeights1Bytes_B = SerializeFloatArray(finalWeights1_B); byte[] trainedBias1Bytes_B = SerializeFloatArray(finalBias1_B);
-                                byte[] trainedWeights2Bytes_B = SerializeFloatArray(finalWeights2_B); byte[] trainedBias2Bytes_B = SerializeFloatArray(finalBias2_B);
+                                var finalParams_B = modelBSession.run(new ITensorOrOperation[] { weights1_B.AsTensor(), bias1_B.AsTensor(), weights2_B.AsTensor(), bias2_B.AsTensor() });
+                                var finalWeights1_B = ((Tensor)finalParams_B[0]).ToArray<float>();
+                                var finalBias1_B = ((Tensor)finalParams_B[1]).ToArray<float>();
+                                var finalWeights2_B = ((Tensor)finalParams_B[2]).ToArray<float>();
+                                var finalBias2_B = ((Tensor)finalParams_B[3]).ToArray<float>();
+
+                                byte[] trainedWeights1Bytes_B = SerializeFloatArray(finalWeights1_B);
+                                byte[] trainedBias1Bytes_B = SerializeFloatArray(finalBias1_B);
+                                byte[] trainedWeights2Bytes_B = SerializeFloatArray(finalWeights2_B);
+                                byte[] trainedBias2Bytes_B = SerializeFloatArray(finalBias2_B);
+
                                 var byteArraysToCombine_B = new List<byte[]>();
-                                if (trainedWeights1Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights1Bytes_B); if (trainedBias1Bytes_B != null) byteArraysToCombine_B.Add(trainedBias1Bytes_B);
-                                if (trainedWeights2Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights2Bytes_B); if (trainedBias2Bytes_B != null) byteArraysToCombine_B.Add(trainedBias2Bytes_B);
+                                if (trainedWeights1Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights1Bytes_B);
+                                if (trainedBias1Bytes_B != null) byteArraysToCombine_B.Add(trainedBias1Bytes_B);
+                                if (trainedWeights2Bytes_B != null) byteArraysToCombine_B.Add(trainedWeights2Bytes_B);
+                                if (trainedBias2Bytes_B != null) byteArraysToCombine_B.Add(trainedBias2Bytes_B);
                                 byte[] combinedModelBData = byteArraysToCombine_B.SelectMany(arr => arr).ToArray();
 
-                                resultsStore["ModelBPredictionsFlat"] = finalPredictionsFlat_B; resultsStore["ModelBPredictionsShape"] = finalPredictionsDims_B;
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Mean Absolute Error: {finalError_B:F6}");
-                                float modelBOutcomeScore = Math.Max(0.0f, 1.0f - finalError_B / 0.5f);
-                                resultsStore["ModelBProcessingOutcome"] = modelBOutcomeScore; resultsStore["ModelBTrainingError"] = finalError_B;
-                                resultsStore["ModelBTrainingLosses"] = trainingLosses.ToArray(); resultsStore["ModelBTrainingErrors"] = trainingErrors.ToArray();
+                                if (finalPredictionsFlat_B != null && finalPredictionsFlat_B.Length > 0)
+                                {
+                                    resultsStore["ModelBPredictionsFlat"] = finalPredictionsFlat_B;
+                                    resultsStore["ModelBPredictionsShape"] = finalPredictionsDims_B;
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Predictions stored in results dictionary ({finalPredictionsFlat_B.Length} values)");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] WARNING: Model B failed to produce predictions to store");
+                                }
+
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B Final Mean Absolute Error: {finalErrorValue_B:F6}");
+                                float modelBOutcomeScore = Math.Max(0.0f, 1.0f - finalErrorValue_B / 0.5f);
+                                resultsStore["ModelBProcessingOutcome"] = modelBOutcomeScore;
+                                resultsStore["ModelBTrainingError"] = finalErrorValue_B;
+                                resultsStore["ModelBTrainingLosses"] = trainingLosses.ToArray();
+                                resultsStore["ModelBTrainingErrors"] = trainingErrors.ToArray();
                                 resultsStore["ModelBCombinedParameters"] = combinedModelBData;
+                                resultsStore["ModelBFinalMatrixCount"] = finalMatrixCount;
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Model B results dictionary populated with {resultsStore.Count} entries");
 
                                 var modelMetadata_B = new Dictionary<string, object> {
-                                    { "EmbeddedExpression", initialExpression }, { "NDimensionalExpression", nDimensionalExpression }, { "TrainingEpochs", numEpochs }, { "FinalMeanAbsoluteError", finalError_B },
-                                    { "TotalInputFeatureCount", totalInputFeatureCount }, { "HiddenLayerSize", hiddenLayerSizeB }, { "TrainingSampleCount", dataSize }, { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
-                                    { "CurvatureEigenvalues", eigenvalues }, { "HasOutermostVertexFocus", true }, { "UsesNDimensionalIterations", true }, { "UsesSigmoidActivation", true }, { "UsesL2Regularization", true }
-                                };
-                                string metadataJson_B = SerializeMetadata(modelMetadata_B); byte[] metadataBytes_B = System.Text.Encoding.UTF8.GetBytes(metadataJson_B);
+                            { "EmbeddedExpression", initialExpression },
+                            { "NDimensionalExpression", nDimensionalExpression },
+                            { "TrainingEpochs", numEpochs },
+                            { "FinalMeanAbsoluteError", finalErrorValue_B },
+                            { "TotalInputFeatureCount", totalInputFeatureCount },
+                            { "HiddenLayerSize", unitCHiddenSize },
+                            { "TrainingSampleCount", dataSize },
+                            { "CreationTimestamp", DateTime.UtcNow.ToString("o") },
+                            { "CurvatureEigenvalues", eigenvalues },
+                            { "HasOutermostVertexFocus", true },
+                            { "UsesNDimensionalIterations", true },
+                            { "FinalMatrixCount", finalMatrixCount },
+                            { "MatrixCountingEnabled", true },
+                            { "ProliferationMode", "NDimensionalMatrixCountingOnly" },
+                            { "UsesSigmoidActivation", true },
+                            { "UsesL2Regularization", true }
+                        };
+                                string metadataJson_B = SerializeMetadata(modelMetadata_B);
+                                byte[] metadataBytes_B = System.Text.Encoding.UTF8.GetBytes(metadataJson_B);
                                 resultsStore["ModelBMetadata"] = metadataBytes_B;
-                                RuntimeProcessingContext.StoreContextValue("model_b_params_combined", combinedModelBData); RuntimeProcessingContext.StoreContextValue("model_b_metadata", metadataBytes_B);
-                                RuntimeProcessingContext.StoreContextValue("model_b_expression", initialExpression); RuntimeProcessingContext.StoreContextValue("model_b_expression_nd", nDimensionalExpression);
-                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Model B trained and saved to RuntimeProcessingContext and Results Store.");
-                                string result = $"TensorNetworkTrained_B_Cust_{custId}_MAE{finalError_B:F4}_Expr({initialExpression.Replace('*', 'm')})";
+                                RuntimeProcessingContext.StoreContextValue("model_b_params_combined", combinedModelBData);
+                                RuntimeProcessingContext.StoreContextValue("model_b_metadata", metadataBytes_B);
+                                RuntimeProcessingContext.StoreContextValue("model_b_expression", initialExpression);
+                                RuntimeProcessingContext.StoreContextValue("model_b_expression_nd", nDimensionalExpression);
+                                RuntimeProcessingContext.StoreContextValue("model_b_final_matrix_count", finalMatrixCount);
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Model B parameters saved to RuntimeContext (Size: {combinedModelBData?.Length ?? 0} bytes)");
+                                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Model B trained and saved to RuntimeProcessingContext and Results Store with final matrix count: {finalMatrixCount}");
+
+                                string result = $"TensorNetworkTrained_B_Cust_{custId}_MAE{finalErrorValue_B:F4}_Expr({initialExpression.Replace('*', 'm').Replace('+', 'p')})_FinalMatrixCount{finalMatrixCount}";
                                 return result;
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Error during Step 7 (Unit B) - Tensor Network Training (Model B Graph Context): {ex.Message}");
                                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Stack Trace (Unit B): {ex.StackTrace}");
-                                resultsStore["ModelBProcessingError"] = "Model B Training Error: " + ex.Message; resultsStore["ModelBProcessingOutcome"] = 0.0f; resultsStore["ModelBTrainingError"] = float.NaN;
+                                resultsStore["ModelBProcessingError"] = "Model B Training Error: " + ex.Message;
+                                resultsStore["ModelBProcessingOutcome"] = 0.0f;
+                                resultsStore["ModelBTrainingError"] = float.NaN;
                                 throw; // Re-throw to be caught by the outer try-catch of ParallelProcessingUnitB
                             }
-                        } // End of modelBGraph.as_default()
+                        }
                     }
                     else
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Step 7 (Unit B) - Missing initial model parameters from Unit C for Model B training. Skipping training.");
-                        resultsStore["ModelBProcessingWarning"] = "Missing initial parameters from Unit C for training."; resultsStore["ModelBProcessingOutcome"] = 0.1f; resultsStore["ModelBTrainingError"] = float.NaN;
+                        resultsStore["ModelBProcessingWarning"] = "Missing initial parameters from Unit C for training.";
+                        resultsStore["ModelBProcessingOutcome"] = 0.1f;
+                        resultsStore["ModelBTrainingError"] = float.NaN;
                         return $"TensorNetworkTrainingSkipped_B_Cust_{custId}_MissingData";
                     }
                 }
@@ -5182,29 +5164,53 @@ namespace Agentic_Mod
                     float modelBTrainingOutcomeScore = unitResultsStore.TryGetValue("ModelBProcessingOutcome", out var maeScore) && maeScore is float maeScoreFloat ? maeScoreFloat : 0.0f;
                     float modelBTrainingError = unitResultsStore.TryGetValue("ModelBTrainingError", out var maeError) && maeError is float maeErrorFloat ? maeErrorFloat : float.NaN;
                     byte[]? modelBCombinedParams = unitResultsStore.TryGetValue("ModelBCombinedParameters", out var maParams) ? maParams as byte[] : null;
+                    int finalMatrixCount = unitResultsStore.TryGetValue("ModelBFinalMatrixCount", out var fmc) ? Convert.ToInt32(fmc) : 1;
 
                     string projectionOutcome = "StableB";
                     float projectedScore = (combinedFeatureEvaluationScore * 0.6f + modelBTrainingOutcomeScore * 0.4f); // Different weighting for B
 
+                    // Factor in matrix count for projection (Unit B)
+                    float matrixCountBonus = (finalMatrixCount - 1) * 0.012f; // Slightly different bonus for B
+                    projectedScore = Math.Min(projectedScore + matrixCountBonus, 1.0f);
+
                     if (!float.IsNaN(modelBTrainingError))
                     {
-                        if (modelBTrainingError < 0.04f) { projectionOutcome = "StrongGrowthB"; projectedScore = Math.Min(projectedScore + 0.12f, 1.0f); } // Different bonus for B
-                        else if (modelBTrainingError > 0.25f) { projectionOutcome = "PotentialChallengesB"; projectedScore = Math.Max(projectedScore - 0.06f, 0.0f); } // Different penalty for B
+                        if (modelBTrainingError < 0.04f) // Different threshold for B
+                        {
+                            projectionOutcome = "StrongGrowthB_HighMatrixCount";
+                            projectedScore = Math.Min(projectedScore + 0.12f, 1.0f); // Different bonus for B
+                        }
+                        else if (modelBTrainingError > 0.25f) // Different threshold for B
+                        {
+                            projectionOutcome = "PotentialChallengesB";
+                            projectedScore = Math.Max(projectedScore - 0.06f, 0.0f); // Different penalty for B
+                        }
                     }
-                    else { projectionOutcome = "TrainingDataUnavailableB"; }
+                    else
+                    {
+                        projectionOutcome = "TrainingDataUnavailableB";
+                    }
 
                     if (modelBCombinedParams != null && modelBCombinedParams.Length > 1200) // Different complexity threshold for B
                     {
                         projectionOutcome += "_ComplexModelB";
                         if (!float.IsNaN(modelBTrainingError))
                         {
-                            if (modelBTrainingError < 0.1f) projectedScore = Math.Min(projectedScore + 0.04f, 1.0f);
-                            else if (modelBTrainingError > 0.3f) projectedScore = Math.Max(projectedScore - 0.04f, 0.0f);
+                            if (modelBTrainingError < 0.1f)
+                            {
+                                projectedScore = Math.Min(projectedScore + 0.04f, 1.0f);
+                            }
+                            else if (modelBTrainingError > 0.3f)
+                            {
+                                projectedScore = Math.Max(projectedScore - 0.04f, 0.0f);
+                            }
                         }
                     }
+
                     projectedScore = Math.Max(0.0f, Math.Min(1.0f, projectedScore));
                     unitResultsStore["B_ProjectedPerformanceScore"] = projectedScore;
-                    string result = $"PerformanceProjection_B_Cust_{custId}_Outcome_{projectionOutcome}_Score_{projectedScore:F4}_TrainError_{(float.IsNaN(modelBTrainingError) ? "N/A" : modelBTrainingError.ToString("F4"))}";
+
+                    string result = $"PerformanceProjection_B_Cust_{custId}_Outcome_{projectionOutcome}_Score_{projectedScore:F4}_TrainError_{(float.IsNaN(modelBTrainingError) ? "N/A" : modelBTrainingError.ToString("F4"))}_FinalMatrixCount{finalMatrixCount}";
                     Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Step 8 (Unit B) - Future performance projection completed: {result}");
                     return result;
                 }
@@ -5230,7 +5236,6 @@ namespace Agentic_Mod
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] Workflow Session {requestSequenceIdentifier}: Parallel Processing Unit B finished.");
             }
         }
-
 
 
 
