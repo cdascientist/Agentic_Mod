@@ -4,6 +4,10 @@
 This document describes a groundbreaking approach to establishing predeterminism in inherently non-deterministic systems by leveraging compound high-dimensional machine learning embeddings. The system achieves effective recursion through inverse calculations of tensor, trajectory, and magnitude components within embedded machine learning algorithms operating across n-dimensional matrices.
 
 ## Table of Contents
+
+
+## N-Dimensional compound machine learning embedding using Cumulative Compound Relational Vector Analysis
+
 [NDimensionalClusterExecution](https://github.com/cdascientist/NDimensionalClusterExecution)
 
 - System Architecture Overview
