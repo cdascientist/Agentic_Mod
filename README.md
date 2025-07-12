@@ -174,11 +174,175 @@ Finally, the system extends these 3D concepts to N-dimensional calculations:
 
 *   **Expression to N-Dimensional Mapping**
     Converts simple expressions to N-dimensional representations:
-
-    ```csharp
-    return "ND(x,y,z,p)=Vx*cos(p)+Vy*sin(p)+Vz*cos(p/2)";
-    ```
     Creates a computational framework that extends beyond 3D.
+    ### Dynamic Expression to N-Dimensional Embedding
+
+The model leverages a dynamic **"Expression Proliferation"** mechanism, which evolves a static mathematical expression into the dynamic form **`1+P`**. In this expression, `P` serves as a proliferation parameter that increments throughout the training process, dictating the scale and complexity of an n-dimensional space.
+
+This dynamic expression is mapped to a comprehensive N-Dimensional embedding via a sophisticated, multi-phase algorithm that is re-calculated for each data batch within the training loop. This acts as a powerful feature engineering engine, transforming raw data into a rich, contextual representation before it enters the neural network.
+
+The process begins by defining the dynamic expression and calculating its state (`P`) for each training epoch.
+
+```csharp
+// The initial expression that drives the n-dimensional computation
+string initialExpression = "1+P"; 
+
+// Inside the training loop, 'P' is calculated for the current epoch.
+// Here, it is represented as 'currentMatrixCount'.
+for (int epoch = 0; epoch < numEpochs; epoch++)
+{
+    // P is used ONLY for counting N-dimensional matrices
+    int currentMatrixCount = 1 + (epoch / 10); // P counts matrices only
+    
+    Console.WriteLine($"=== EPOCH {epoch + 1}/{numEpochs} - N-DIMENSIONAL MATRIX COUNT={currentMatrixCount} ===");
+    // ... training continues ...
+}
+```
+
+
+# Embedded Compound Algorithm: From Clustering to Vector Fields
+
+At the heart of this transformation is a compound algorithm that sequentially constructs the n-dimensional embedding. It provides deep, physics-based context to the raw data.
+
+## 1. Density-Normalized K-Means Clustering
+
+Instead of standard clustering, the algorithm first computes the local density for each data point. The initial centroids for the K-Means algorithm are then strategically chosen from the densest regions, ensuring the clusters are anchored by the most significant data concentrations.
+```csharp
+// Inside ComputeNDimensionalEmbedding()
+
+// === PHASE 1: ... Local Density Computation ===
+double[] densities = new double[batchSize];
+double adjustedRadius = r * Math.Sqrt(proliferationInstance); // 'r' also scales with P
+
+for (int i = 0; i < batchSize; i++)
+{
+    for (int j = 0; j < batchSize; j++)
+    {
+        // ... calculates distance between points ...
+        if (distance <= adjustedRadius)
+        {
+            densities[i] += 1.0;
+        }
+    }
+}
+
+// === PHASE 2: DENSITY-NORMALIZED K-MEANS ===
+// Select the top 'K' densest points as the initial seeds for K-Means centroids
+var densityIndexPairs = densities.Select((density, index) => new { Density = density, Index = index })
+                                   .OrderByDescending(x => x.Density)
+                                   .Take(K) // K also scales with P
+                                   .ToArray();
+
+double[][] centroids = new double[K][];
+for (int j = 0; j < K; j++)
+{
+    int seedIndex = densityIndexPairs[j].Index;
+    centroids[j] = (double[])normalizedData[seedIndex].Clone();
+}
+
+// ... K-Means iteration then proceeds ...
+```
+
+# Embedded Compound Algorithm: From Clustering to Vector Fields
+
+## 2. Geometric Lifting & Simplex Construction
+
+The final cluster centroids are "geometrically lifted" into a higher dimension (*ℝ^(d+1)*). This process constructs an n-dimensional simplex (a generalization of a triangle or tetrahedron), creating a new geometric space that represents the data's underlying structure. The height of this simplex is directly influenced by the proliferation parameter P.
+```csharp
+// Inside ComputeNDimensionalEmbedding()
+
+// === PHASE 3: GEOMETRIC LIFTING TO ℝ^(d+1) ===
+// Calculate the center of all cluster centroids
+double[] relativeCenter = new double[inputFeatures];
+for (int k = 0; k < inputFeatures; k++)
+{
+    relativeCenter[k] = centroids.Average(centroid => centroid[k]);
+}
+
+// The height of the new dimension is scaled by the proliferation parameter
+double relativeMagnitude = Math.Sqrt(relativeCenter.Sum(x => x * x));
+double apexHeight = relativeMagnitude * proliferationInstance; // P directly scales the height
+```
+
+# Embedded Compound Algorithm: From Clustering to Vector Fields
+
+The final cluster centroids are "geometrically lifted" into a higher dimension (*ℝ^(d+1)*). This process constructs an n-dimensional simplex (a generalization of a triangle or tetrahedron), creating a new geometric space that represents the data's underlying structure. The height of this simplex is directly influenced by the proliferation parameter P.
+
+## 3. Vector, Magnitude, and Tensor Field Extrapolation
+
+Within this new n-dimensional simplex, the algorithm extrapolates key physics-based characteristics to create a tensor field.
+```csharp
+// Inside ComputeNDimensionalEmbedding()
+
+// === PHASE 4: TENSOR & VELOCITY COMPUTATION ===
+// An apex point is defined using the scaled height
+double[] apex = new double[inputFeatures + 1];
+for (int k = 0; k < inputFeatures; k++)
+{
+    apex[k] = relativeCenter[k];
+}
+apex[inputFeatures] = apexHeight;
+
+// A direction vector is calculated from the base of the simplex to the apex
+double[] direction = new double[inputFeatures + 1];
+for (int k = 0; k <= inputFeatures; k++)
+{
+    direction[k] = apex[k] - baseCentroid[k];
+}
+
+// The magnitude (length) of this direction vector is found
+double magnitude = Math.Sqrt(direction.Sum(x => x * x));
+
+// Velocity is computed by scaling the direction vector by its magnitude and the proliferation parameter
+double[] velocity = new double[inputFeatures + 1];
+for (int k = 0; k <= inputFeatures; k++)
+{
+    velocity[k] = magnitude * unitDirection[k] * proliferationInstance; // P influences velocity
+}
+```
+## 4. Amended Vertex Through Embedding
+
+The final output is a compact embedding vector that distills the clustering results, geometric structure, and the tensor/velocity field. This embedding is then concatenated with the original input data, "amending" the input to the neural network with this rich, n-dimensional context.
+```csharp
+// Inside ComputeNDimensionalEmbedding() - Final embedding generation
+
+// === PHASE 5: EMBEDDING GENERATION ===
+float[,] embedding = new float[batchSize, embeddingDimension];
+for (int i = 0; i < batchSize; i++)
+{
+    for (int j = 0; j < embeddingDimension; j++)
+    {
+        // Combine cluster, velocity, direction, and density info into a single value
+        double component = 0;
+        component += centroids[clusterIdx][j % inputFeatures] * 0.3; // Cluster influence
+        component += velocity[j] * 0.25;                           // Velocity influence
+        component += unitDirection[j] * 0.25;                       // Direction influence
+        component += (density / batchSize) * proliferationInstance * 0.2; // Density influence scaled by P
+        
+        // Final trigonometric transformation also uses P
+        double p = (double)proliferationInstance;
+        component = x * Math.Cos(p * j) + component * Math.Sin(p * j) + density * Math.Cos(p * j / 2);
+
+        embedding[i, j] = (float)component;
+    }
+}
+```
+```csharp
+// Inside Stage7_TensorNetworkTraining() - TensorFlow graph definition
+
+// The embedding is fed into the model via a dedicated placeholder
+Tensor ndEmbeddingInput = tf.placeholder(tf.float32, shape: new int[] { -1, 16 }, name: "nd_embedding_input_A");
+
+// It is then concatenated with the original inputs to create an "amended" or extended input tensor
+Tensor extendedInput = tf.concat(new[] { combinedInput, ndEmbeddingInput }, axis: 1, name: "extended_input_A");
+
+// The rest of the network uses this extendedInput, allowing the model to learn from
+// both the original features and their n-dimensional geometric/momentum properties.
+ResourceVariable weights1 = tf.Variable(tf.constant(extendedWeights1Data, dtype: tf.float32), name: "weights1_A");
+Tensor hidden = tf.nn.relu(tf.add(tf.matmul(extendedInput, weights1), bias1), name: "hidden_A");
+```
+
+
 
 *   **Curvature-Weighted Neural Network**
     Integrates curvature information into network weights:
